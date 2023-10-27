@@ -15,7 +15,13 @@ struct Params {
     double atol = 1e-12;
     char Init = 'z'; // 'z' => zeros
     std::size_t RandomStartSize = 10;
-    beta_vector * InitialSol;
+    // beta_vector * InitialSol;
+    beta_vector * InitialSol = nullptr; // Initialize to nullptr, indicating no initial solution
+    // To fix warnings following:
+      // Found the following significant warnings:
+        //include/Params.h:9:8: warning: 'P.Params<arma::SpMat<double> >::InitialSol' is used uninitialized [-Wuninitialized]
+        //include/Params.h:9:8: warning: 'P' is used uninitialized [-Wuninitialized]
+        //include/Params.h:9:8: warning: 'P.Params<arma::Mat<double> >::InitialSol' is used uninitialized [-Wuninitialized]
     double b0 = 0; // intercept
     char CyclingOrder = 'c';
     std::vector<std::size_t> Uorder;
