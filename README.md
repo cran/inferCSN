@@ -6,19 +6,21 @@
 
 <!-- badges: end -->
 
+## **Introduction**
+
 [*`inferCSN`*](https://mengxu98.github.io/inferCSN/) is an package for inferring cell-specific gene regulatory network from single-cell sequencing data.
 
 <img src="man/figures/inferCSN.svg" width="75%"/>
 
-## **Install**
+## **Installation**
 
-### [*`CRAN`*](https://github.com/cran)
+You can install the released version from [*`CRAN`*](https://github.com/cran) use:
 
 ``` r
 install.packages("inferCSN")
 ```
 
-### Using [*`pak`*](https://github.com/r-lib/pak)
+You can install the development version from [*`GitHub`*](https://github.com/mengxu98/inferCSN) use [*`pak`*](https://github.com/r-lib/pak):
 
 ``` r
 if (!require("pak", quietly = TRUE)) {
@@ -27,13 +29,13 @@ if (!require("pak", quietly = TRUE)) {
 pak::pak("mengxu98/inferCSN")
 ```
 
-### Using *`git clone`*
+You can also install the development version use *`git clone`* to automatically handle some issues related to dependencies:
 
 ``` bash
 git clone https://github.com/mengxu98/inferCSN.git
 cd inferCSN
 sh scripts/requirements.sh
-R CMD INSTALL .
+R CMD INSTALL . --library=/your/lib/path
 ```
 
 ## **Usage**
