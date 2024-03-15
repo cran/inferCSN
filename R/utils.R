@@ -3,10 +3,11 @@ utils::globalVariables(c(
   "y",
   "xend",
   "yend",
+  "regulator",
+  "target",
   "weight",
   "Interaction",
   "name",
-  "regulator",
   "degree",
   "edges",
   "curvetype"
@@ -68,8 +69,8 @@ check.parameters <- function(
   }
 
   if (!is.null(k_folds)) {
-    if (!(k_folds > 0 && k_folds < 10)) {
-      stop("Please set 'k_folds' value between: (0, 10).")
+    if (!(is.numeric(k_folds) && k_folds > 0 && k_folds < 10)) {
+      stop("Please set 'k_folds' value between: (0, 1].")
     }
   }
 
@@ -143,30 +144,132 @@ check.parameters <- function(
   }
 }
 
-#' @title Switch weight table
+#' @title Switch weight table to matrix
 #'
-#' @param weight_table The weight data table of network
+#' @param weight_table The weight data table of network.
+#' @inheritParams net.format
 #'
-#' @return Format weight matrix
+#' @return Weight matrix
 #' @export
-table.to.matrix <- function(weight_table) {
-  .Call(
+#'
+#' @examples
+#' library(inferCSN)
+#' data("example_matrix")
+#' weight_table <- inferCSN(example_matrix)
+#' head(weight_table)
+#'
+#' table.to.matrix(weight_table)[1:6, 1:6]
+#'
+#' table.to.matrix(
+#'   weight_table,
+#'   regulators = c("g1", "g2"),
+#'   targets = c("g3", "g4")
+#' )
+table.to.matrix <- function(
+    weight_table,
+    regulators = NULL,
+    targets = NULL) {
+  weight_table <- net.format(
+    weight_table,
+    abs_weight = FALSE
+  )
+  weight_matrix <- .Call(
     "_inferCSN_table_to_matrix",
     PACKAGE = "inferCSN",
     weight_table
   )
+  weight_matrix <- filter.sort.matrix(
+    weight_matrix,
+    regulators = regulators,
+    targets = targets)
+
+  return(weight_matrix)
+}
+
+#' @title Filter and sort matrix
+#'
+#' @param weight_matrix The matrix of network weight.
+#' @inheritParams net.format
+#'
+#' @return Filtered and sorted matrix
+#' @export
+#'
+#' @examples
+#' library(inferCSN)
+#' data("example_matrix")
+#' weight_table <- inferCSN(example_matrix)
+#' weight_matrix <- table.to.matrix(weight_table)
+#' filter.sort.matrix(weight_matrix)[1:6, 1:6]
+#'
+#' filter.sort.matrix(
+#'   weight_matrix ,
+#'   regulators = c("g1", "g2"),
+#'   targets = c("g3", "g4")
+#' )
+filter.sort.matrix <- function(
+    weight_matrix,
+    regulators = NULL,
+    targets = NULL) {
+  weight_matrix[is.na(weight_matrix)] <- 0
+  if (!is.null(regulators)) {
+    regulators <- intersect(rownames(weight_matrix), regulators)
+  } else {
+    regulators <- rownames(weight_matrix)
+  }
+  if (!is.null(targets)) {
+    targets <- intersect(colnames(weight_matrix), targets)
+  } else{
+    targets <- colnames(weight_matrix)
+  }
+
+  unique_regulators <- gtools::mixedsort(unique(regulators))
+  unique_targets <- gtools::mixedsort(unique(targets))
+  weight_matrix <- weight_matrix[unique_regulators, unique_targets]
+
+  return(weight_matrix)
 }
 
 #' @title Format weight table
 #'
-#' @param weight_table The weight data table of network
-#' @param regulators Regulators list
+#' @param weight_table The weight data table of network.
+#' @param regulators Regulators list.
+#' @param targets Targets list.
+#' @param abs_weight Logical value, whether to perform absolute value on weights,
+#'  default set to `TRUE`, and when set `abs_weight` to `TRUE`,
+#'  the output of weight table will create a new column named `Interaction`.
 #'
 #' @return Format weight table
 #' @export
+#'
+#' @examples
+#' library(inferCSN)
+#' data("example_matrix")
+#' weight_table <- inferCSN(example_matrix)
+#'
+#' net.format(
+#'   weight_table,
+#'   regulators = c("g1")
+#' )
+#' net.format(
+#'   weight_table,
+#'   regulators = c("g1"),
+#'   abs_weight = FALSE
+#' )
+#'
+#' net.format(
+#'   weight_table,
+#'   targets = c("g3")
+#' )
+#' net.format(
+#'   weight_table,
+#'   regulators = c("g1", "g3"),
+#'   targets = c("g3", "g5")
+#' )
 net.format <- function(
     weight_table,
-    regulators = NULL) {
+    regulators = NULL,
+    targets = NULL,
+    abs_weight = TRUE) {
   colnames(weight_table) <- c("regulator", "target", "weight")
   weight_table$weight <- as.numeric(weight_table$weight)
   weight_table <- dplyr::filter(weight_table, weight != 0)
@@ -176,25 +279,39 @@ net.format <- function(
         dplyr::filter(weight_table, regulator == x)
       })
   }
-  weight_table$Interaction <- "Activation"
-  weight_table$Interaction[weight_table$weight < 0] <- "Repression"
-  weight_table$weight <- abs(weight_table$weight)
+  if (!is.null(targets)) {
+    weight_table <- purrr::map_dfr(
+      unique(targets), function(x) {
+        dplyr::filter(weight_table, target == x)
+      })
+  }
+
+  if (abs_weight) {
+    weight_table$Interaction <- ifelse(weight_table$weight < 0, "Repression", "Activation")
+    weight_table$weight <- abs(weight_table$weight)
+  }
+
+  weight_table <- weight_table[order(
+    abs(as.numeric(weight_table$weight)),
+    decreasing = TRUE
+  ), ]
+
   return(weight_table)
 }
 
 #' @title Extracts a specific solution in the regularization path
 #'
-#' @param object The output of inferCSN.fit or inferCSN.cvfit
+#' @param object The output of model.fit or inferCSN.cvfit
 #' @param lambda The value of lambda at which to extract the solution
 #' @param gamma The value of gamma at which to extract the solution
 #' @param supportSize The number of non-zeros each solution extracted will contain
 #' @param ... Other parameters
 #'
-#' @method coef inferCSN
+#' @method coef SRM_fit
 #'
 #' @return Return the specific solution
 #' @export
-coef.inferCSN <- function(
+coef.SRM_fit <- function(
     object,
     lambda = NULL,
     gamma = NULL,
@@ -246,30 +363,30 @@ coef.inferCSN <- function(
   t
 }
 
-#' @rdname coef.inferCSN
+#' @rdname coef.SRM_fit
 #'
-#' @method coef inferCSNCV
+#' @method coef SRM_fit_CV
 #'
 #' @return Return the specific solution
 #' @export
-coef.inferCSNCV <- function(
+coef.SRM_fit_CV <- function(
     object,
     lambda = NULL,
     gamma = NULL,
     ...) {
-  coef.inferCSN(object$fit, lambda, gamma, ...)
+  coef.SRM_fit(object$fit, lambda, gamma, ...)
 }
 
-#' @title Prints a summary of inferCSN.fit
+#' @title Prints a summary of model.fit
 #'
-#' @param x The output of inferCSN.fit or inferCSN.cvfit
+#' @param x The output of model.fit or inferCSN.cvfit
 #' @param ... Other parameters
 #'
-#' @method print inferCSN
+#' @method print SRM_fit
 #'
-#' @return Return the information of inferCSN.fit
+#' @return Return information of model.fit
 #' @export
-print.inferCSN <- function(x, ...) {
+print.SRM_fit <- function(x, ...) {
   gammas <- rep(x$gamma, times = lapply(x$lambda, length))
   data.frame(
     lambda = unlist(x["lambda"]),
@@ -279,21 +396,21 @@ print.inferCSN <- function(x, ...) {
   )
 }
 
-#' @rdname print.inferCSN
+#' @rdname print.SRM_fit
 #'
-#' @method print inferCSNCV
+#' @method print SRM_fit_CV
 #'
-#' @return Return the information of inferCSN.fit
+#' @return Return information of model.fit
 #' @export
-print.inferCSNCV <- function(x, ...) {
-  print.inferCSN(x$fit)
+print.SRM_fit_CV <- function(x, ...) {
+  print.SRM_fit(x$fit)
 }
 
 #' @title Predict Response
 #'
-#' @description Predicts the response for a given sample
+#' @description Predicts response for a given sample
 #'
-#' @param object The output of inferCSN.fit
+#' @param object The output of model.fit
 #' @param newx A matrix on which predictions are made. The matrix should have p columns
 #' @param lambda The value of lambda to use for prediction.
 #' A summary of the lambdas in the regularization path can be obtained using \code{print(fit)}
@@ -301,22 +418,22 @@ print.inferCSNCV <- function(x, ...) {
 #' A summary of the gammas in the regularization path can be obtained using \code{print(fit)}
 #' @param ... Other parameters
 #'
-#' @method predict inferCSN
+#' @method predict SRM_fit
 #'
 #' @details
 #' If both lambda and gamma are not supplied, then a matrix of predictions for all the solutions in the regularization path is returned.
 #' If lambda is supplied but gamma is not, the smallest value of gamma is used.
 #' In case of logistic regression, probability values are returned
 #'
-#' @return Return the predict value
+#' @return Return predict value
 #' @export
-predict.inferCSN <- function(
+predict.SRM_fit <- function(
     object,
     newx,
     lambda = NULL,
     gamma = NULL,
     ...) {
-  beta <- coef.inferCSN(object, lambda, gamma)
+  beta <- coef.SRM_fit(object, lambda, gamma)
   if (object$settings$intercept) {
     # add a column of ones for the intercept
     x <- cbind(1, newx)
@@ -330,19 +447,19 @@ predict.inferCSN <- function(
   prediction
 }
 
-#' @rdname predict.inferCSN
+#' @rdname predict.SRM_fit
 #'
-#' @method predict inferCSNCV
+#' @method predict SRM_fit_CV
 #'
 #' @return Return the predict value
 #' @export
-predict.inferCSNCV <- function(
+predict.SRM_fit_CV <- function(
     object,
     newx,
     lambda = NULL,
     gamma = NULL,
     ...) {
-  predict.inferCSN(object$fit, newx, lambda, gamma, ...)
+  predict.SRM_fit(object$fit, newx, lambda, gamma, ...)
 }
 
 is.scalar <- function(x) {

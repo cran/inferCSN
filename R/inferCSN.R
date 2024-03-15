@@ -98,18 +98,16 @@ setMethod(
     )
 
     if (!is.null(regulators)) {
-      regulators_matrix <- matrix[, intersect(colnames(matrix), regulators)]
+      regulators <- intersect(colnames(matrix), regulators)
     } else {
-      regulators_matrix <- matrix
+      regulators <- colnames(matrix)
     }
 
     if (!is.null(targets)) {
-      targets_matrix <- matrix[, intersect(colnames(matrix), targets)]
+      targets <- intersect(colnames(matrix), targets)
     } else {
-      targets_matrix <- matrix
+      targets <- colnames(matrix)
     }
-    targets <- colnames(targets_matrix)
-    rm(matrix)
 
     target <- NULL
     cores <- min(
@@ -129,9 +127,9 @@ setMethod(
       weight_table <- purrr::map_dfr(
         targets, function(target) {
           if (verbose) pb$tick()
-          sub.inferCSN(
-            regulators_matrix = regulators_matrix,
-            targets_matrix = targets_matrix,
+          single.network(
+            matrix = matrix,
+            regulators = regulators,
             target = target,
             cross_validation = cross_validation,
             seed = seed,
@@ -152,11 +150,11 @@ setMethod(
       "%dopar%" <- foreach::"%dopar%"
       weight_table <- foreach::foreach(
         target = targets,
-        .export = c("sub.inferCSN", "sparse.regression")
+        .export = c("single.network", "sparse.regression")
       ) %dopar% {
-        sub.inferCSN(
-          regulators_matrix = regulators_matrix,
-          targets_matrix = targets_matrix,
+        single.network(
+          matrix = matrix,
+          regulators = regulators,
           target = target,
           cross_validation = cross_validation,
           seed = seed,
@@ -173,11 +171,12 @@ setMethod(
       doParallel::stopImplicitCluster()
     }
 
-    weight_table <- weight_table[order(
-      abs(as.numeric(weight_table$weight)),
-      decreasing = TRUE
-    ), ]
+    weight_table <- net.format(
+      weight_table,
+      abs_weight = FALSE
+    )
     if (verbose) message("Run done.")
+
     return(weight_table)
   }
 )

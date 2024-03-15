@@ -4,16 +4,47 @@
 \alias{net.format}
 \title{Format weight table}
 \usage{
-net.format(weight_table, regulators = NULL)
+net.format(weight_table, regulators = NULL, targets = NULL, abs_weight = TRUE)
 }
 \arguments{
-\item{weight_table}{The weight data table of network}
+\item{weight_table}{The weight data table of network.}
 
-\item{regulators}{Regulators list}
+\item{regulators}{Regulators list.}
+
+\item{targets}{Targets list.}
+
+\item{abs_weight}{Logical value, whether to perform absolute value on weights,
+default set to `TRUE`, and when set `abs_weight` to `TRUE`,
+the output of weight table will create a new column named `Interaction`.}
 }
 \value{
 Format weight table
 }
 \description{
 Format weight table
+}
+\examples{
+library(inferCSN)
+data("example_matrix")
+weight_table <- inferCSN(example_matrix)
+
+net.format(
+  weight_table,
+  regulators = c("g1")
+)
+net.format(
+  weight_table,
+  regulators = c("g1"),
+  abs_weight = FALSE
+)
+
+net.format(
+  weight_table,
+  targets = c("g3")
+)
+net.format(
+  weight_table,
+  regulators = c("g1", "g3"),
+  targets = c("g3", "g5")
+)
 }
