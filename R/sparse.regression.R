@@ -61,7 +61,10 @@ single.network <- function(
     verbose = verbose
   )
 
-  coefficients <- coefficients / sum(abs(coefficients))
+  coefficients <- normalization(
+    coefficients,
+    method = "sum"
+  )
   if (length(coefficients) != ncol(x)) {
     coefficients <- rep(0, ncol(x))
   }
@@ -103,7 +106,7 @@ sparse.regression <- function(
     r_threshold = 0,
     verbose = FALSE) {
   if (!is.null(k_folds)) {
-    samples <- sample(k_folds * nrow(x))
+    samples <- sample(nrow(x), k_folds * nrow(x))
     test_x <- x[-samples, ]
     x <- x[samples, ]
     test_y <- y[-samples]

@@ -1,0 +1,17 @@
+utils::globalVariables(
+  c(
+    "x",
+    "y",
+    "xend",
+    "yend",
+    "regulator",
+    "target",
+    "weight",
+    "Interaction",
+    "name",
+    "degree",
+    "edges",
+    "curvetype",
+    "weight_new"
+  )
+)
