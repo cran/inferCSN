@@ -1,9 +1,54 @@
+#' @title Apply function over a List or Vector
+#'
+#' @param x A vector or list to apply over.
+#' @param fun The function to be applied to each element.
+#' @param cores cores.
+#' @param export_fun export_fun.
+#' @param verbose Logical. Whether to print progress bar.
+#' Only works in sequential mode.
+#'
+#' @return A list.
+#'
+#' @export
+parallelize_fun <- function(
+    x,
+    fun,
+    cores = 1,
+    export_fun = NULL,
+    verbose = TRUE) {
+  if (cores == 1 && verbose) {
+    return(pbapply::pblapply(X = x, FUN = fun))
+  }
+  if (cores == 1 && !verbose) {
+    return(base::lapply(X = x, FUN = fun))
+  }
+  if (cores > 1) {
+    doParallel::registerDoParallel(cores = cores)
+    if (verbose) {
+      message("Using ", foreach::getDoParWorkers(), " cores.")
+    }
+
+    "%dopar%" <- foreach::"%dopar%"
+    output_list <- foreach::foreach(
+      i = 1:length(x),
+      .export = export_fun
+    ) %dopar% {
+      fun(x[[i]])
+    }
+    names(output_list) <- names(x)
+
+    doParallel::stopImplicitCluster()
+
+    return(output_list)
+  }
+}
+
 #' @title Check input parameters
 #'
 #' @param matrix An expression matrix, cells by genes
 #' @inheritParams inferCSN
 #'
-#' @return No return value, called for check input parameters
+#' @return Not return value, called for check input parameters
 #' @export
 check.parameters <- function(
     matrix,
@@ -12,156 +57,165 @@ check.parameters <- function(
     cross_validation,
     seed,
     n_folds,
-    k_folds,
+    percent_samples,
     r_threshold,
     regulators,
     targets,
     regulators_num,
     verbose,
-    cores) {
-  if (verbose) message("Checking input parameters.")
+    cores,
+    ...) {
+  if (verbose) {
+    message("Checking input parameters.")
+  }
 
   if (!is.matrix(matrix) && !is.array(matrix) && (length(dim(matrix)) != 2)) {
     stop(
-      "Parameter matrix must be a two-dimensional matrix,
+      "`matrix` must be a two-dimensional matrix,
       where each column corresponds to a gene and each row corresponds to a sample/cell."
     )
   }
 
   if (is.null(colnames(matrix))) {
-    stop("Parameter matrix must contain the names of the genes as colnames.")
+    stop("`matrix` must contain the names of the genes as colnames.")
   }
 
   # Check the penalty term of the regression model
-  if (!any(c("L0", "L0L2") == penalty)) {
-    stop(
-      "inferCSN does not support ", penalty, " penalty regression.\n",
-      "Please set penalty item as 'L0' or 'L0L2'."
-    )
-  }
+  match.arg(penalty, c("L0", "L0L2"))
 
   # Check the algorithm of the regression model
-  if (!any(c("CD", "CDPSI") == algorithm)) {
-    stop(
-      "inferCSN does not support ", algorithm, " algorithmn.\n",
-      "Please set algorithm item as 'CD' or 'CDPSI'."
-    )
-  }
+  match.arg(algorithm, c("CD", "CDPSI"))
 
   if (!is.numeric(seed)) {
     seed <- 1
-    if (verbose) warning("Supplied seed is not a valid integer, initialize 'seed' to 1.")
+    if (verbose) {
+      warning("`seed` is not a valid integer, initialize to 1.")
+    }
   }
 
-  if (!is.null(k_folds)) {
-    if (!(is.numeric(k_folds) && k_folds > 0 && k_folds < 10)) {
-      stop("Please set 'k_folds' value between: (0, 1].")
-    }
+  if (!(is.numeric(percent_samples) && percent_samples > 0 && percent_samples <= 1)) {
+    stop("Please set `percent_samples` value between: (0, 1].")
   }
 
   if (!is.null(targets)) {
-    if (!is.vector(targets)) {
-      stop("Parameter 'targets' must a vector (of indices or gene names).")
+    targets_intersect <- intersect(targets, colnames(matrix))
+    if (length(targets_intersect) == 0) {
+      stop("The input genes must contain at least 1 target.")
     }
 
-    if (is.numeric(targets)) {
-      if (max(targets) > nrow(matrix)) stop("At least one index in 'targets' exceeds the number of genes.")
-      if (min(targets) <= 0) stop("The indexes in 'targets' should be >=1.")
-    }
-
-    if (any(table(targets) > 1)) stop("Please provide each target only once.")
-
-    if (is.character(targets)) {
-      targetsInMatrix <- intersect(targets, colnames(matrix))
-      if (length(targetsInMatrix) == 0) {
-        stop("The genes must contain at least one target.")
-      }
-
-      if (length(targetsInMatrix) < length(targets)) {
-        if (verbose) warning("Only ", length(targetsInMatrix), " out of ", length(targets), " candidate regulators are in the expression matrix.")
+    if (length(targets_intersect) < length(targets)) {
+      if (verbose) {
+        warning(
+          "Only ", length(targets_intersect), " out of ", length(targets), " candidate regulators are in `matrix`."
+        )
       }
     }
   }
 
   if (!is.null(regulators)) {
-    if (is.list(regulators)) {
-      regulators <- unique(unlist(regulators))
+    regulators_intersect <- intersect(regulators, colnames(matrix))
+    if (length(regulators_intersect) == 0) {
+      stop("The input genes must contain at least 1 regulator.")
     }
-    if (!is.null(regulators)) {
-      if (length(regulators) < 2) stop("Provide at least 2 potential regulators.")
 
-      if (!is.vector(regulators)) {
-        stop("Parameter 'regulators' must a vector of indices or gene names.")
+    if (length(regulators_intersect) == 1) {
+      if (verbose) {
+        message("Only 1 regulator found in `matrix`, `weight` calculated by `cor`.")
       }
+    }
 
-      if (is.numeric(regulators)) {
-        if (max(regulators) > nrow(matrix)) {
-          stop("At least one index in 'regulators' exceeds the number of genes.")
-        }
-        if (min(regulators) <= 0) stop("The indexes in 'regulators' should be >=1.")
-      }
-
-      if (any(table(regulators) > 1)) stop("Please provide each regulator only once.")
-
-      if (is.character(regulators)) {
-        regulators_in_matrix <- intersect(regulators, colnames(matrix))
-        if (length(regulators_in_matrix) < 2) {
-          stop("Fewer than 2 regulators in the columns of expression matrix.")
-        }
-
-        if (length(regulators_in_matrix) < length(regulators)) {
-          if (verbose) {
-            warning("Only ", length(regulators_in_matrix), " out of ", length(regulators), " candidate regulators are in the expression matrix.")
-          }
-        }
+    if (length(regulators_intersect) < length(regulators)) {
+      if (verbose) {
+        warning("Only ", length(regulators_intersect), " out of ", length(regulators), " candidate regulators are in the expression matrix.")
       }
     }
   }
 
   if (!is.numeric(cores) || cores < 1) {
-    stop(x = "Parameter cores should be a stricly positive integer.")
+    stop("`cores` should be a stricly positive integer.")
   }
 
   if (verbose) {
-    message("All parameters check done.")
-    message("Using '", penalty, "' penalty.")
+    message("Using `", penalty, "` penalty.")
     if (cross_validation) message("Using cross validation.")
+  }
+}
+
+#' @title Attempts to turn a dgCMatrix into a dense matrix
+#'
+#' @param x A matrix.
+#' @export
+#'
+#' @examples
+#' sparse_matrix <- Matrix::sparseMatrix(
+#'   i = sample(1:200, 50),
+#'   j = sample(1:200, 50),
+#'   x = rnorm(50),
+#'   dims = c(200, 200),
+#'   dimnames = list(
+#'     paste0("a", rep(1:200)),
+#'     paste0("b", rep(1:200))
+#'   )
+#' )
+#'
+#' identical(
+#'   as.matrix(sparse_matrix),
+#'   as_matrix(sparse_matrix)
+#' )
+as_matrix <- function(x) {
+  if (!inherits(x, "dgCMatrix")) {
+    return(Matrix::as.matrix(x))
+  } else {
+    row_pos <- x@i
+    col_pos <- findInterval(seq_along(x@x) - 1, x@p[-1])
+    mat <- .Call(
+      "_inferCSN_asMatrix",
+      PACKAGE = "inferCSN",
+      row_pos,
+      col_pos,
+      x@x,
+      x@Dim[1],
+      x@Dim[2]
+    )
+
+    attr(mat, "dimnames") <- list(x@Dimnames[[1]], x@Dimnames[[2]])
+
+    return(mat)
   }
 }
 
 #' @title Switch weight table to matrix
 #'
-#' @param weight_table The weight data table of network.
-#' @inheritParams net.format
+#' @param network_table The weight data table of network.
+#' @inheritParams network_format
 #'
 #' @return Weight matrix
 #' @export
 #'
 #' @examples
-#' library(inferCSN)
 #' data("example_matrix")
-#' weight_table <- inferCSN(example_matrix)
-#' head(weight_table)
+#' network_table <- inferCSN(example_matrix)
+#' head(network_table)
 #'
-#' table.to.matrix(weight_table)[1:6, 1:6]
+#' table.to.matrix(network_table)[1:6, 1:6]
 #'
 #' table.to.matrix(
-#'   weight_table,
+#'   network_table,
 #'   regulators = c("g1", "g2"),
 #'   targets = c("g3", "g4")
 #' )
 table.to.matrix <- function(
-    weight_table,
+    network_table,
     regulators = NULL,
     targets = NULL) {
-  weight_table <- net.format(
-    weight_table,
+  network_table <- network_format(
+    network_table,
     abs_weight = FALSE
   )
   weight_matrix <- .Call(
     "_inferCSN_table_to_matrix",
     PACKAGE = "inferCSN",
-    weight_table
+    network_table
   )
   weight_matrix <- filter_sort_matrix(
     weight_matrix,
@@ -175,7 +229,7 @@ table.to.matrix <- function(
 #' @title Filter and sort matrix
 #'
 #' @param weight_matrix The matrix of network weight.
-#' @inheritParams net.format
+#' @inheritParams network_format
 #'
 #' @return Filtered and sorted matrix
 #' @export
@@ -183,12 +237,12 @@ table.to.matrix <- function(
 #' @examples
 #' library(inferCSN)
 #' data("example_matrix")
-#' weight_table <- inferCSN(example_matrix)
-#' weight_matrix <- table.to.matrix(weight_table)
+#' network_table <- inferCSN(example_matrix)
+#' weight_matrix <- table.to.matrix(network_table)
 #' filter_sort_matrix(weight_matrix)[1:6, 1:6]
 #'
 #' filter_sort_matrix(
-#'   weight_matrix ,
+#'   weight_matrix,
 #'   regulators = c("g1", "g2"),
 #'   targets = c("g3", "g4")
 #' )
@@ -204,7 +258,7 @@ filter_sort_matrix <- function(
   }
   if (!is.null(targets)) {
     targets <- intersect(colnames(weight_matrix), targets)
-  } else{
+  } else {
     targets <- colnames(weight_matrix)
   }
 
@@ -217,7 +271,7 @@ filter_sort_matrix <- function(
 
 #' @title Format weight table
 #'
-#' @param weight_table The weight data table of network.
+#' @param network_table The weight data table of network.
 #' @param regulators Regulators list.
 #' @param targets Targets list.
 #' @param abs_weight Logical value, whether to perform absolute value on weights,
@@ -228,63 +282,66 @@ filter_sort_matrix <- function(
 #' @export
 #'
 #' @examples
-#' library(inferCSN)
 #' data("example_matrix")
-#' weight_table <- inferCSN(example_matrix)
+#' network_table <- inferCSN(example_matrix)
 #'
-#' net.format(
-#'   weight_table,
+#' network_format(
+#'   network_table,
 #'   regulators = c("g1")
 #' )
-#' net.format(
-#'   weight_table,
+#'
+#' network_format(
+#'   network_table,
 #'   regulators = c("g1"),
 #'   abs_weight = FALSE
 #' )
 #'
-#' net.format(
-#'   weight_table,
+#' network_format(
+#'   network_table,
 #'   targets = c("g3")
 #' )
-#' net.format(
-#'   weight_table,
+#'
+#' network_format(
+#'   network_table,
 #'   regulators = c("g1", "g3"),
 #'   targets = c("g3", "g5")
 #' )
-net.format <- function(
-    weight_table,
+network_format <- function(
+    network_table,
     regulators = NULL,
     targets = NULL,
     abs_weight = TRUE) {
-  colnames(weight_table) <- c("regulator", "target", "weight")
-  weight_table$weight <- as.numeric(weight_table$weight)
-  weight_table <- dplyr::filter(weight_table, weight != 0)
+  colnames(network_table) <- c("regulator", "target", "weight")
+  network_table$weight <- as.numeric(network_table$weight)
+  network_table <- dplyr::filter(network_table, weight != 0)
   if (!is.null(regulators)) {
-    weight_table <- purrr::map_dfr(
+    network_table <- purrr::map_dfr(
       unique(regulators), function(x) {
-        dplyr::filter(weight_table, regulator == x)
-      })
+        dplyr::filter(network_table, regulator == x)
+      }
+    )
   }
   if (!is.null(targets)) {
-    weight_table <- purrr::map_dfr(
+    network_table <- purrr::map_dfr(
       unique(targets), function(x) {
-        dplyr::filter(weight_table, target == x)
-      })
+        dplyr::filter(network_table, target == x)
+      }
+    )
   }
 
   if (abs_weight) {
-    weight_table$Interaction <- ifelse(
-      weight_table$weight < 0, "Repression", "Activation"
+    network_table$Interaction <- ifelse(
+      network_table$weight < 0, "Repression", "Activation"
     )
-    weight_table$weight <- abs(weight_table$weight)
+    network_table$weight <- abs(network_table$weight)
   }
 
-  weight_table <- weight_table[order(
-    abs(as.numeric(weight_table$weight)),
+  network_table <- network_table[order(
+    abs(as.numeric(network_table$weight)),
     decreasing = TRUE
   ), ]
 
-  return(weight_table)
+  return(network_table)
 }
 
 #' @title Extracts a specific solution in the regularization path
@@ -464,12 +521,56 @@ is.scalar <- function(x) {
 normalization <- function(
     x,
     method = "max_min") {
-  y <- switch(
+  na_index <- which(is.na(x))
+  x[na_index] <- 0
+  x <- switch(
     EXPR = method,
     "max_min" = ((x - min(x)) / (max(x) - min(x))),
     "max" = (x / max(abs(x))),
-    "sum" = (x / sum(abs(x)))
+    "sum" = (x / sum(abs(x))),
+    "softmax" = .softmax(x)
   )
+  x[na_index] <- NA
 
-  return(y)
+  return(x)
+}
+
+.softmax <- function(x) {
+  abs_x <- abs(x)
+  exp_abs_x <- exp(abs_x)
+  sum_exp_abs_x <- sum(exp_abs_x)
+  softmax_values <- exp_abs_x / sum_exp_abs_x
+  result <- softmax_values * sign(x)
+
+  return(result)
+}
+
+.rmse <- function(
+    true,
+    pred) {
+  sqrt(mean((true - pred)^2))
+}
+
+#' Sum of Squared Errors
+#'
+#' @param y_true A numeric vector with ground truth values.
+#' @param y_pred A numeric vector with predicted values.
+sse <- function(y_true, y_pred) {
+  return(sum((y_true - y_pred)**2))
+}
+
+#' Relative Squared Error
+#'
+#' @param y_true A numeric vector with ground truth values.
+#' @param y_pred A numeric vector with predicted values.
+rse <- function(y_true, y_pred) {
+  return(sse(y_true, y_pred) / sse(y_true, mean(y_true)))
+}
+
+#' @title \eqn{R^2} (coefficient of determination)
+#'
+#' @param y_true A numeric vector with ground truth values.
+#' @param y_pred A numeric vector with predicted values.
+r_square <- function(y_true, y_pred) {
+  1 - rse(y_true, y_pred)
 }
