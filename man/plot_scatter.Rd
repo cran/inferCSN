@@ -2,7 +2,7 @@
 % Please edit documentation in R/plotting_functions.R
 \name{plot_scatter}
 \alias{plot_scatter}
-\title{plot_scatter}
+\title{Plot expression data in a scatter plot}
 \usage{
 plot_scatter(
   data,
@@ -19,16 +19,16 @@ plot_scatter(
   margins_size = 10,
   compute_correlation = TRUE,
   compute_correlation_method = "pearson",
-  keep_aspect_ratio = FALSE,
+  keep_aspect_ratio = TRUE,
   facet = FALSE,
   se = FALSE,
   pointdensity = TRUE
 )
 }
 \arguments{
-\item{data}{Input data}
+\item{data}{Input data.}
 
-\item{smoothing_method}{Method for smoothing curve, "lm" or "loess".}
+\item{smoothing_method}{Method for smoothing curve, \code{lm} or \code{loess}.}
 
 \item{group_colors}{Colors for different groups.}
 
@@ -46,13 +46,13 @@ plot_scatter(
 
 \item{margins}{The position of marginal figure ("both", "x", "y").}
 
-\item{marginal_type}{The type of marginal figure ("density", "histogram", "boxplot", "violin", "densigram").}
+\item{marginal_type}{The type of marginal figure (\code{density}, \code{histogram}, \code{boxplot}, \code{violin}, \code{densigram}).}
 
 \item{margins_size}{The size of marginal figure, note the bigger size the smaller figure.}
 
 \item{compute_correlation}{Whether to compute and print correlation on the figure.}
 
-\item{compute_correlation_method}{Method to compute correlation ("pearson" or "spearman").}
+\item{compute_correlation_method}{Method to compute correlation (\code{pearson} or \code{spearman}).}
 
 \item{keep_aspect_ratio}{Logical value, whether to set aspect ratio to 1:1.}
 
@@ -66,7 +66,7 @@ plot_scatter(
 ggplot object
 }
 \description{
-plot_scatter
+Plot expression data in a scatter plot
 }
 \examples{
 data("example_matrix")
@@ -82,27 +82,23 @@ test_data <- data.frame(
 )
 
 p1 <- plot_scatter(
-  test_data,
-  keep_aspect_ratio = TRUE
+  test_data
 )
 p2 <- plot_scatter(
   test_data,
-  marginal_type = "boxplot",
-  keep_aspect_ratio = TRUE
+  marginal_type = "boxplot"
 )
 p1 + p2
 
 p3 <- plot_scatter(
   test_data,
-  facet = TRUE,
-  keep_aspect_ratio = TRUE
+  facet = TRUE
 )
 p3
 
 p4 <- plot_scatter(
   test_data[, 1:2],
-  marginal_type = "histogram",
-  keep_aspect_ratio = TRUE
+  marginal_type = "histogram"
 )
 p4
 }

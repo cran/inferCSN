@@ -4,8 +4,9 @@
 \name{inferCSN}
 \alias{inferCSN}
 \alias{inferCSN,matrix-method}
+\alias{inferCSN,sparseMatrix-method}
 \alias{inferCSN,data.frame-method}
-\title{Inferring Cell-Specific Gene Regulatory Network}
+\title{\strong{infer}ring \strong{C}ell-\strong{S}pecific gene regulatory \strong{N}etwork}
 \usage{
 inferCSN(
   object,
@@ -20,7 +21,7 @@ inferCSN(
   targets = NULL,
   regulators_num = NULL,
   cores = 1,
-  verbose = FALSE,
+  verbose = TRUE,
   ...
 )
 
@@ -37,7 +38,24 @@ inferCSN(
   targets = NULL,
   regulators_num = NULL,
   cores = 1,
-  verbose = FALSE,
+  verbose = TRUE,
+  ...
+)
+
+\S4method{inferCSN}{sparseMatrix}(
+  object,
+  penalty = "L0",
+  algorithm = "CD",
+  cross_validation = FALSE,
+  seed = 1,
+  n_folds = 10,
+  percent_samples = 1,
+  r_threshold = 0,
+  regulators = NULL,
+  targets = NULL,
+  regulators_num = NULL,
+  cores = 1,
+  verbose = TRUE,
   ...
 )
 
@@ -54,56 +72,124 @@ inferCSN(
   targets = NULL,
   regulators_num = NULL,
   cores = 1,
-  verbose = FALSE,
+  verbose = TRUE,
   ...
 )
 }
 \arguments{
-\item{object}{The input data for \code{inferCSN}.}
+\item{object}{The input data for \emph{\code{inferCSN}}.}
 
-\item{penalty}{The type of regularization.
-This can take either one of the following choices: \code{L0} and \code{L0L2}.
-For high-dimensional and sparse data, such as single-cell sequencing data, \code{L0L2} is more effective.}
+\item{penalty}{The type of regularization, default is \emph{\code{L0}}.
+This can take either one of the following choices: \emph{\code{L0}}, \emph{\code{L0L1}}, and \emph{\code{L0L2}}.
+For high-dimensional and sparse data, \emph{\code{L0L2}} is more effective.}
 
-\item{algorithm}{The type of algorithm used to minimize the objective function.
-Currently \code{CD} and \code{CDPSI} are supported.
-The \code{CDPSI} algorithm may yield better results, but it also increases running time.}
+\item{algorithm}{The type of algorithm used to minimize the objective function, default is \emph{\code{CD}}.
+Currently \emph{\code{CD}} and \emph{\code{CDPSI}} are supported.
+The \emph{\code{CDPSI}} algorithm may yield better results, but it also increases running time.}
 
-\item{cross_validation}{Check whether cross validation is used.}
+\item{cross_validation}{Logical value, default is \emph{\code{FALSE}}, whether to use cross-validation.}
 
-\item{seed}{The seed used in randomly shuffling the data for cross-validation.}
+\item{seed}{The random seed for cross-validation, default is \emph{\code{1}}.}
 
-\item{n_folds}{The number of folds for cross-validation.}
+\item{n_folds}{The number of folds for cross-validation, default is \emph{\code{10}}.}
 
-\item{percent_samples}{The percent of all samples used for \code{\link{sparse.regression}}. Default set to 1.}
+\item{percent_samples}{The percent of all samples used for \code{\link{sparse_regression}}, default is \emph{\code{1}}.}
 
-\item{r_threshold}{Threshold of \eqn{R^2} or correlation coefficient.}
+\item{r_threshold}{Threshold of \eqn{R^2} or correlation coefficient, default is \emph{\code{0}}.}
 
-\item{regulators}{A character vector with the regulators to consider for CSN inference.}
+\item{regulators}{The regulator genes for which to infer the regulatory network.}
 
-\item{targets}{A character vector with the targets to consider for CSN inference.}
+\item{targets}{The target genes for which to infer the regulatory network.}
 
 \item{regulators_num}{The number of non-zore coefficients, this value will affect the final performance.
 The maximum support size at which to terminate the regularization path.
 Recommend setting this to a small fraction of min(n,p) (e.g. 0.05 * min(n,p)) as L0 regularization typically selects a small portion of non-zeros.}
 
-\item{cores}{Number of CPU cores used. Setting to parallelize the computation with \code{\link[foreach]{foreach}}.}
+\item{cores}{The number of cores to use for parallelization with \code{\link[foreach]{foreach}}, default is \emph{\code{1}}.}
 
-\item{verbose}{Print detailed information.}
+\item{verbose}{Logical value, default is \emph{\code{TRUE}}, whether to print progress messages.}
 
 \item{...}{Parameters for other methods.}
 }
 \value{
-A data table of gene-gene regulatory relationship
+A data table of regulator-target regulatory relationships
 }
 \description{
-Inferring Cell-Specific Gene Regulatory Network
+\strong{infer}ring \strong{C}ell-\strong{S}pecific gene regulatory \strong{N}etwork
 }
 \examples{
 data("example_matrix")
-network_table <- inferCSN(example_matrix, verbose = TRUE)
+network_table_1 <- inferCSN(
+  example_matrix
+)
+head(network_table_1)
+
+network_table_2 <- inferCSN(
+  example_matrix,
+  cores = 2
+)
+
+identical(
+  network_table_1,
+  network_table_2
+)
+
+inferCSN(
+  example_matrix,
+  regulators = c("g1", "g2"),
+  targets = c("g3", "g4")
+)
+inferCSN(
+  example_matrix,
+  regulators = c("g1", "g2"),
+  targets = c("g3", "g0")
+)
+inferCSN(
+  example_matrix,
+  regulators = c("g1", "g0"),
+  targets = c("g2", "g3")
+)
+inferCSN(
+  example_matrix,
+  regulators = c("g1"),
+  targets = c("g2")
+)
+\dontrun{
+data("example_matrix")
+network_table <- inferCSN(example_matrix)
 head(network_table)
 
-network_table <- inferCSN(example_matrix, cores = 2)
-head(network_table)
+network_table_sparse_1 <- inferCSN(
+  as(example_matrix, "sparseMatrix")
+)
+head(network_table_sparse_1)
+
+network_table_sparse_2 <- inferCSN(
+  as(example_matrix, "sparseMatrix"),
+  cores = 2
+)
+identical(
+  network_table,
+  network_table_sparse_1
+)
+
+identical(
+  network_table_sparse_1,
+  network_table_sparse_2
+)
+
+plot_scatter(
+  data.frame(
+    network_table$weight,
+    network_table_sparse_1$weight
+  ),
+  legend_position = "none"
+)
+
+plot_weight_distribution(
+  network_table
+) + plot_weight_distribution(
+  network_table_sparse_1
+)
+}
 }

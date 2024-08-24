@@ -1,4 +1,29 @@
-#' @title AUC value calculate
+.prepare_network_data <- function(
+    network_table,
+    ground_truth) {
+  colnames(network_table) <- c("regulator", "target", "weight")
+  network_table$weight <- abs(as.numeric(network_table$weight))
+
+  if (ncol(ground_truth) > 2) {
+    ground_truth <- ground_truth[, 1:2]
+  }
+  names(ground_truth) <- c("regulator", "target")
+  ground_truth$label <- rep(1, nrow(ground_truth))
+
+  gold <- suppressWarnings(
+    merge(
+      network_table,
+      ground_truth,
+      by = c("regulator", "target"),
+      all.x = TRUE
+    )
+  )
+  gold$label[is.na(gold$label)] <- 0
+
+  return(gold)
+}
+
+#' @title Calculate AUPRC and AUROC values
 #'
 #' @param network_table The weight data table of network
 #' @param ground_truth Ground truth for calculate AUC
@@ -13,14 +38,14 @@
 #' data("example_matrix")
 #' data("example_ground_truth")
 #' network_table <- inferCSN(example_matrix)
-#' auc.calculate(network_table, example_ground_truth, plot = TRUE)
-auc.calculate <- function(
+#' calculate_auc(network_table, example_ground_truth, plot = TRUE)
+calculate_auc <- function(
     network_table,
     ground_truth,
     plot = FALSE,
     line_color = "#1563cc",
     line_width = 1) {
-  gold <- prepare.performance.data(
+  gold <- .prepare_network_data(
     network_table,
     ground_truth
   )
@@ -91,9 +116,9 @@ auc.calculate <- function(
   return(auc_metric)
 }
 
-#' @title ACC calculate
+#' @title Calculate accuracy value
 #'
-#' @inheritParams auc.calculate
+#' @inheritParams calculate_auc
 #'
 #' @return ACC value
 #' @export
@@ -102,18 +127,19 @@ auc.calculate <- function(
 #' data("example_matrix")
 #' data("example_ground_truth")
 #' network_table <- inferCSN(example_matrix)
-#' acc.calculate(network_table, example_ground_truth)
-acc.calculate <- function(
+#' calculate_acc(network_table, example_ground_truth)
+calculate_acc <- function(
     network_table,
     ground_truth) {
-
-  gold <- prepare.performance.data(
+  gold <- .prepare_network_data(
     network_table,
-    ground_truth)
+    ground_truth
+  )
   results <- pROC::roc(
     gold$label ~ gold$weight,
     direction = "<",
-    levels = c(0, 1))
+    levels = c(0, 1)
+  )
 
   # After this operation, '0' indicate positive
   reverse_label <- 2 - as.numeric(as.factor(gold$label))
@@ -140,34 +166,4 @@ acc.calculate <- function(
   acc <- sprintf("%0.3f", acc)
 
   return(acc)
-}
-
-#' @title prepare.performance.data
-#'
-#' @inheritParams auc.calculate
-#'
-#' @return Formated data
-#' @export
-prepare.performance.data <- function(
-    network_table,
-    ground_truth) {
-  # Check input data
-  colnames(network_table) <- c("regulator", "target", "weight")
-  network_table$weight <- abs(as.numeric(network_table$weight))
-
-  if (ncol(ground_truth) > 2) ground_truth <- ground_truth[, 1:2]
-  names(ground_truth) <- c("regulator", "target")
-  ground_truth$label <- rep(1, nrow(ground_truth))
-
-  gold <- suppressWarnings(
-    merge(
-      network_table,
-      ground_truth,
-      by = c("regulator", "target"),
-      all.x = TRUE
-    )
-  )
-  gold$label[is.na(gold$label)] <- 0
-
-  return(gold)
 }
