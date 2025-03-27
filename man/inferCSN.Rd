@@ -11,15 +11,14 @@
 inferCSN(
   object,
   penalty = "L0",
-  algorithm = "CD",
   cross_validation = FALSE,
   seed = 1,
-  n_folds = 10,
-  percent_samples = 1,
-  r_threshold = 0,
+  n_folds = 5,
+  subsampling_method = c("sample", "meta_cells", "pseudobulk"),
+  subsampling_ratio = 1,
+  r_squared_threshold = 0,
   regulators = NULL,
   targets = NULL,
-  regulators_num = NULL,
   cores = 1,
   verbose = TRUE,
   ...
@@ -28,15 +27,14 @@ inferCSN(
 \S4method{inferCSN}{matrix}(
   object,
   penalty = "L0",
-  algorithm = "CD",
   cross_validation = FALSE,
   seed = 1,
-  n_folds = 10,
-  percent_samples = 1,
-  r_threshold = 0,
+  n_folds = 5,
+  subsampling_method = c("sample", "meta_cells", "pseudobulk"),
+  subsampling_ratio = 1,
+  r_squared_threshold = 0,
   regulators = NULL,
   targets = NULL,
-  regulators_num = NULL,
   cores = 1,
   verbose = TRUE,
   ...
@@ -45,15 +43,14 @@ inferCSN(
 \S4method{inferCSN}{sparseMatrix}(
   object,
   penalty = "L0",
-  algorithm = "CD",
   cross_validation = FALSE,
   seed = 1,
-  n_folds = 10,
-  percent_samples = 1,
-  r_threshold = 0,
+  n_folds = 5,
+  subsampling_method = c("sample", "meta_cells", "pseudobulk"),
+  subsampling_ratio = 1,
+  r_squared_threshold = 0,
   regulators = NULL,
   targets = NULL,
-  regulators_num = NULL,
   cores = 1,
   verbose = TRUE,
   ...
@@ -62,15 +59,14 @@ inferCSN(
 \S4method{inferCSN}{data.frame}(
   object,
   penalty = "L0",
-  algorithm = "CD",
   cross_validation = FALSE,
   seed = 1,
-  n_folds = 10,
-  percent_samples = 1,
-  r_threshold = 0,
+  n_folds = 5,
+  subsampling_method = c("sample", "meta_cells", "pseudobulk"),
+  subsampling_ratio = 1,
+  r_squared_threshold = 0,
   regulators = NULL,
   targets = NULL,
-  regulators_num = NULL,
   cores = 1,
   verbose = TRUE,
   ...
@@ -83,26 +79,21 @@ inferCSN(
 This can take either one of the following choices: \emph{\code{L0}}, \emph{\code{L0L1}}, and \emph{\code{L0L2}}.
 For high-dimensional and sparse data, \emph{\code{L0L2}} is more effective.}
 
-\item{algorithm}{The type of algorithm used to minimize the objective function, default is \emph{\code{CD}}.
-Currently \emph{\code{CD}} and \emph{\code{CDPSI}} are supported.
-The \emph{\code{CDPSI}} algorithm may yield better results, but it also increases running time.}
-
 \item{cross_validation}{Logical value, default is \emph{\code{FALSE}}, whether to use cross-validation.}
 
 \item{seed}{The random seed for cross-validation, default is \emph{\code{1}}.}
 
-\item{n_folds}{The number of folds for cross-validation, default is \emph{\code{10}}.}
+\item{n_folds}{The number of folds for cross-validation, default is \emph{\code{5}}.}
 
-\item{percent_samples}{The percent of all samples used for \code{\link{sparse_regression}}, default is \emph{\code{1}}.}
+\item{subsampling_method}{The method to use for subsampling. Options are "sample", "pseudobulk" or "meta_cells".}
 
-\item{r_threshold}{Threshold of \eqn{R^2} or correlation coefficient, default is \emph{\code{0}}.}
+\item{subsampling_ratio}{The percent of all samples used for \code{\link{fit_srm}}, default is \emph{\code{1}}.}
+
+\item{r_squared_threshold}{Threshold of \eqn{R^2} coefficient, default is \emph{\code{0}}.}
 
 \item{regulators}{The regulator genes for which to infer the regulatory network.}
 
-\item{targets}{The target genes for which to infer the regulatory network.}
-
-\item{regulators_num}{The number of non-zore coefficients, this value will affect the final performance.
-The maximum support size at which to terminate the regularization path.
+\item{targets}{The target genes for which to infer the regulatory network.
 Recommend setting this to a small fraction of min(n,p) (e.g. 0.05 * min(n,p)) as L0 regularization typically selects a small portion of non-zeros.}
 
 \item{cores}{The number of cores to use for parallelization with \code{\link[foreach]{foreach}}, default is \emph{\code{1}}.}
@@ -122,12 +113,13 @@ data("example_matrix")
 network_table_1 <- inferCSN(
   example_matrix
 )
-head(network_table_1)
 
 network_table_2 <- inferCSN(
   example_matrix,
   cores = 2
 )
+
+head(network_table_1)
 
 identical(
   network_table_1,
@@ -144,16 +136,24 @@ inferCSN(
   regulators = c("g1", "g2"),
   targets = c("g3", "g0")
 )
-inferCSN(
+
+\dontrun{
+data("example_ground_truth")
+network_table_07 <- inferCSN(
   example_matrix,
-  regulators = c("g1", "g0"),
-  targets = c("g2", "g3")
+  r_squared_threshold = 0.7
 )
-inferCSN(
-  example_matrix,
-  regulators = c("g1"),
-  targets = c("g2")
+calculate_metrics(
+  network_table_1,
+  example_ground_truth,
+  return_plot = TRUE
 )
+calculate_metrics(
+  network_table_07,
+  example_ground_truth,
+  return_plot = TRUE
+)
+}
 \dontrun{
 data("example_matrix")
 network_table <- inferCSN(example_matrix)

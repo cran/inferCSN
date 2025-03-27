@@ -1,42 +1,3 @@
-.weight_sift <- function(table) {
-  table <- table[, 1:3]
-  raw_rownames <- colnames(table)
-  colnames(table) <- c("x", "y", "v")
-  table$edge <- paste(
-    table$x,
-    table$y,
-    sep = "_"
-  )
-  rownames(table) <- table$edge
-
-  table_new <- data.frame(
-    edge = paste(
-      table$y,
-      table$x,
-      sep = "_"
-    ),
-    v = table$v
-  )
-  rownames(table_new) <- table_new$edge
-
-  common_edges <- intersect(rownames(table), rownames(table_new))
-  if (length(common_edges) == 0) {
-    table <- table[, 1:3]
-    colnames(table) <- raw_rownames
-    rownames(table) <- NULL
-    return(table)
-  }
-  table_common_edges <- table[common_edges, ]
-  table_new <- table_new[common_edges, ]
-  table_common_edges$v_new <- table_new$v
-  table_common_edges <- dplyr::filter(table_common_edges, abs(v) < abs(v_new))
-  table <- table[setdiff(rownames(table), rownames(table_common_edges)), 1:3]
-  colnames(table) <- raw_rownames
-  rownames(table) <- NULL
-
-  return(table)
-}
-
 #' @title Sifting network
 #'
 #' @inheritParams inferCSN
@@ -67,6 +28,7 @@
 #' data("example_matrix")
 #' data("example_meta_data")
 #' data("example_ground_truth")
+#'
 #' network_table <- inferCSN(example_matrix)
 #' network_table_sifted <- network_sift(network_table)
 #' network_table_sifted_entropy <- network_sift(
@@ -104,20 +66,20 @@
 #'   rect_color = "gray70"
 #' )
 #'
-#' calculate_auc(
+#' calculate_metrics(
 #'   network_table,
 #'   example_ground_truth,
-#'   plot = TRUE
+#'   return_plot = TRUE
 #' )
-#' calculate_auc(
+#' calculate_metrics(
 #'   network_table_sifted,
 #'   example_ground_truth,
-#'   plot = TRUE
+#'   return_plot = TRUE
 #' )
-#' calculate_auc(
+#' calculate_metrics(
 #'   network_table_sifted_entropy,
 #'   example_ground_truth,
-#'   plot = TRUE
+#'   return_plot = TRUE
 #' )
 #' }
 network_sift <- function(
@@ -140,33 +102,36 @@ network_sift <- function(
     if (is.null(matrix) | is.null(meta_data) | is.null(pseudotime_column)) {
       log_message(
         "Parameters: 'matrix', 'meta_data' and 'pseudotime_column' not all provide, setting 'method' to 'max'.",
+        message_type = "warning",
         verbose = verbose
       )
       method <- "max"
-      return(.weight_sift(network_table))
+      return(weight_sift(network_table))
     }
     if (!(pseudotime_column %in% colnames(meta_data))) {
       log_message(
         "Parameters: 'pseudotime_column' not in meta data provided, setting 'method' to 'max'.",
+        message_type = "warning",
         verbose = verbose
       )
       method <- "max"
-      return(.weight_sift(network_table))
+      return(weight_sift(network_table))
     }
 
     samples <- intersect(rownames(meta_data), rownames(matrix))
     if (is.null(samples)) {
       log_message(
         "No intersect samples in matrix and meta data, setting 'method' to 'max'.",
+        message_type = "warning",
         verbose = verbose
       )
       method <- "max"
-      return(.weight_sift(network_table))
+      return(weight_sift(network_table))
     }
   }
 
   if (method == "max") {
-    return(.weight_sift(network_table))
+    return(weight_sift(network_table))
   }
 
   meta_data <- meta_data[samples, ]
@@ -214,6 +179,7 @@ network_sift <- function(
     if (shuffles != 0) {
       log_message(
         "Parameter: 'effective_entropy == FALSE' and 'shuffles != 0', setting 'shuffles == 0'.",
+        message_type = "warning",
         verbose = verbose
       )
       shuffles <- 0
@@ -222,13 +188,14 @@ network_sift <- function(
     if (shuffles <= 10) {
       log_message(
         "Parameter: 'shuffles' is too small, setting 'shuffles == 10'.",
+        message_type = "warning",
         verbose = verbose
       )
       shuffles <- 10
     }
   }
 
-  transfer_entropy_list <- parallelize_fun(
+  transfer_entropy_table <- parallelize_fun(
     unique_pairs,
     cores = cores,
     verbose = verbose,
@@ -267,14 +234,8 @@ network_sift <- function(
         )
       }
     }
-  )
-
-  transfer_entropy_table <- purrr::map_dfr(
-    transfer_entropy_list,
-    .f = function(x) {
-      x
-    }
-  )
+  ) |>
+    purrr::list_rbind()
 
   if (entropy_nboot > 1) {
     transfer_entropy_table <- dplyr::filter(
@@ -288,9 +249,7 @@ network_sift <- function(
   transfer_entropy_table <- rbind(
     transfer_entropy_table[, c(1, 2, 3)],
     transfer_entropy_table_contrary
-  )
-
-  transfer_entropy_table <- .weight_sift(transfer_entropy_table)
+  ) |> weight_sift()
 
   network_table <- merge(
     network_table,

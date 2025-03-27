@@ -10,15 +10,14 @@
 \method{coef}{srm_cv}(object, lambda = NULL, gamma = NULL, ...)
 }
 \arguments{
-\item{object}{The output of \code{\link{fit_sparse_regression}}.}
+\item{object}{The output of \code{\link{sparse_regression}}.}
 
 \item{lambda}{The value of lambda at which to extract the solution.}
 
 \item{gamma}{The value of gamma at which to extract the solution.}
 
 \item{regulators_num}{The number of non-zore coefficients, this value will affect the final performance.
-The maximum support size at which to terminate the regularization path.
-Recommend setting this to a small fraction of min(n,p) (e.g. 0.05 * min(n,p)) as L0 regularization typically selects a small portion of non-zeros.}
+The maximum support size at which to terminate the regularization path.}
 
 \item{...}{Other parameters}
 }

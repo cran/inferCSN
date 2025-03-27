@@ -10,7 +10,7 @@
 \method{predict}{srm_cv}(object, newx, lambda = NULL, gamma = NULL, ...)
 }
 \arguments{
-\item{object}{The output of fit_sparse_regression.}
+\item{object}{The output of sparse_regression.}
 
 \item{newx}{A matrix on which predictions are made. The matrix should have p columns}
 
@@ -29,7 +29,8 @@ Return predict value
 Predicts response for a given sample
 }
 \details{
-If both lambda and gamma are not supplied, then a matrix of predictions for all the solutions in the regularization path is returned.
+If both lambda and gamma are not supplied,
+then a matrix of predictions for all the solutions in the regularization path is returned.
 If lambda is supplied but gamma is not, the smallest value of gamma is used.
 In case of logistic regression, probability values are returned.
 }

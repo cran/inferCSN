@@ -172,9 +172,9 @@ plot_scatter <- function(
   return(p)
 }
 
-#' @title Plot weight distribution
+#' @title Plot histogram
 #'
-#' @param network_table The weight data table of network.
+#' @param data A numeric vector.
 #' @param binwidth Width of the bins.
 #' @param show_border Logical value, whether to show border of the bins.
 #' @param border_color Color of the border.
@@ -185,15 +185,15 @@ plot_scatter <- function(
 #' @param theme_direction Direction of the theme.
 #' @param legend_position The position of legend.
 #'
-#' @return ggplot object
+#' @return A ggplot object
 #' @export
 #'
 #' @examples
 #' data("example_matrix")
 #' network_table <- inferCSN(example_matrix)
-#' plot_weight_distribution(network_table)
-plot_weight_distribution <- function(
-    network_table,
+#' plot_histogram(network_table[, 3])
+plot_histogram <- function(
+    data,
     binwidth = 0.01,
     show_border = FALSE,
     border_color = "black",
@@ -203,7 +203,8 @@ plot_weight_distribution <- function(
     theme_end = 0.5,
     theme_direction = -1,
     legend_position = "right") {
-  ggplot(network_table, aes(x = weight)) +
+  data <- data.frame(weight = data)
+  ggplot(data, aes(x = weight)) +
     geom_histogram(
       aes(fill = after_stat(count)),
       binwidth = binwidth,
@@ -299,16 +300,15 @@ plot_embedding <- function(
         stats::prcomp(matrix, rank. = 3)$x
       }
     )
-  )
-
-  result_df <- as.data.frame(result)
-  colnames(result_df) <- c("Dim1", "Dim2", "Dim3")
+  ) |>
+    as.data.frame()
+  colnames(result) <- c("Dim1", "Dim2", "Dim3")
 
   if (!is.null(labels)) {
-    result_df$label <- labels
+    result$label <- labels
 
     p <- plotly::plot_ly(
-      data = result_df,
+      data = result,
       x = ~Dim1,
       y = ~Dim2,
       z = ~Dim3,
@@ -320,7 +320,7 @@ plot_embedding <- function(
     )
   } else {
     p <- plotly::plot_ly(
-      data = result_df,
+      data = result,
       x = ~Dim1,
       y = ~Dim2,
       z = ~Dim3,
@@ -339,6 +339,125 @@ plot_embedding <- function(
     ),
     title = paste0("3D ", toupper(method), " Visualization")
   )
+
+  return(p)
+}
+
+#' @title Plot coefficients
+#'
+#' @param data Input data.
+#' @param style Plotting style: "binary", "gradient", or "continuous".
+#' @param positive_color Color for positive weights.
+#' @param negative_color Color for negative weights.
+#' @param neutral_color Color for weights near zero (used in "continuous" style).
+#' @param bar_width Width of the bars.
+#' @param text_size Size of the text for weight values.
+#' @param show_values Logical, whether to show weight values on bars.
+#'
+#' @return A ggplot object
+#' @export
+#'
+#' @examples
+#' data("example_matrix")
+#' network_table <- inferCSN(example_matrix, targets = "g1")
+#' plot_coefficient(network_table)
+#' plot_coefficient(network_table, style = "binary")
+plot_coefficient <- function(
+    data,
+    style = "continuous",
+    positive_color = "#3d67a2",
+    negative_color = "#c82926",
+    neutral_color = "#cccccc",
+    bar_width = 0.7,
+    text_size = 3,
+    show_values = TRUE) {
+  p <- ggplot(
+    data,
+    aes(
+      x = stats::reorder(regulator, weight),
+      y = weight
+    )
+  ) +
+    coord_flip() +
+    labs(x = "Regulator", y = "Weight")
+
+  if (style == "binary") {
+    p <- p +
+      geom_bar(stat = "identity", width = bar_width, aes(fill = weight > 0)) +
+      scale_fill_manual(values = c(negative_color, positive_color))
+  } else if (style == "continuous") {
+    max_abs_weight <- max(abs(data$weight))
+    p <- p +
+      geom_bar(
+        stat = "identity",
+        width = bar_width,
+        aes(fill = weight > 0, alpha = abs(weight) / max_abs_weight)
+      ) +
+      scale_fill_manual(values = c(negative_color, positive_color)) +
+      scale_alpha_continuous(range = c(0.2, 1))
+  } else {
+    stop("Invalid style. Choose 'binary' or 'continuous'.")
+  }
+
+  p <- p +
+    theme_bw() +
+    theme(
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      legend.position = "none",
+      axis.text.y = element_text(size = 8),
+      axis.text.x = element_text(size = 8),
+      axis.title = element_text(size = 10, face = "bold")
+    )
+
+  if (show_values) {
+    p <- p + geom_text(
+      aes(
+        label = sprintf("%.2f", weight),
+        hjust = ifelse(weight > 0, -0.1, 1.1)
+      ),
+      size = text_size,
+      color = "black"
+    )
+  }
+
+  return(p)
+}
+
+#' @title Plot coefficients for multiple targets
+#'
+#' @param data Input data.
+#' @param targets Targets to plot.
+#' @param nrow Number of rows for the plot.
+#' @param ... Other arguments passed to \code{\link{plot_coefficient}}.
+#'
+#' @return A list of ggplot objects
+#' @export
+#'
+#' @examples
+#' data("example_matrix")
+#' network_table <- inferCSN(
+#'   example_matrix,
+#'   targets = c("g1", "g2", "g3")
+#' )
+#' plot_coefficients(network_table, show_values = FALSE)
+#' plot_coefficients(network_table, targets = "g1")
+plot_coefficients <- function(
+    data,
+    targets = NULL,
+    nrow = NULL,
+    ...) {
+  if (is.null(targets)) {
+    targets <- unique(data$target)
+  }
+  p_list <- lapply(targets, function(target) {
+    plot_coefficient(data[data$target == target, ], ...)
+  })
+  if (!is.null(nrow)) {
+    p <- patchwork::wrap_plots(p_list, nrow = nrow)
+  } else {
+    p <- patchwork::wrap_plots(p_list)
+  }
 
   return(p)
 }

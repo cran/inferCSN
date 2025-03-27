@@ -13,10 +13,10 @@
 #' @param rect_color Default is *`NA`*. Color of heatmap rect.
 #' @param anno_width Width of annotation.
 #' @param anno_height Height of annotation.
-#' @param row_anno_type Default is *`NULL`*,
+#' @param row_anno_type Default is *`boxplot`*,
 #' could add a annotation plot to row,
 #' choose one of *`boxplot`*, *`barplot`*, *`histogram`*, *`density`*, *`lines`*, *`points`*, and *`horizon`*.
-#' @param column_anno_type Default is *`NULL`*,
+#' @param column_anno_type Default is *`boxplot`*,
 #' could add a annotation plot to column,
 #' choose one of *`boxplot`*, *`barplot`*, *`histogram`*, *`density`*, *`lines`*, and *`points`*.
 #' @param legend_name The name of legend.
@@ -42,20 +42,19 @@
 #'   legend_name = "inferCSN"
 #' )
 #' ComplexHeatmap::draw(p1 + p2)
-#'
+#' \dontrun{
 #' p3 <- plot_network_heatmap(
 #'   network_table,
-#'   heatmap_title = "inferCSN",
 #'   legend_name = "Weight1",
 #'   heatmap_color = c("#20a485", "#410054", "#fee81f")
 #' )
 #' p4 <- plot_network_heatmap(
 #'   network_table,
-#'   heatmap_title = "inferCSN",
 #'   legend_name = "Weight2",
 #'   heatmap_color = c("#20a485", "white", "#fee81f")
 #' )
 #' ComplexHeatmap::draw(p3 + p4)
+#' }
 #'
 #' plot_network_heatmap(
 #'   network_table,
@@ -65,6 +64,13 @@
 #'   column_anno_type = "barplot"
 #' )
 #'
+#' plot_network_heatmap(
+#'   network_table,
+#'   regulators = c("g1", "g3", "g5"),
+#'   targets = c("g3", "g6", "g9"),
+#'   show_names = TRUE
+#' )
+#' \dontrun{
 #' plot_network_heatmap(
 #'   network_table,
 #'   regulators = c("g1", "g2"),
@@ -78,13 +84,7 @@
 #'   column_anno_type = "histogram",
 #'   show_names = TRUE
 #' )
-#'
-#' plot_network_heatmap(
-#'   network_table,
-#'   regulators = c("g1", "g3", "g5"),
-#'   targets = c("g3", "g6", "g9"),
-#'   show_names = TRUE
-#' )
+#' }
 plot_network_heatmap <- function(
     network_table,
     regulators = NULL,
@@ -96,13 +96,32 @@ plot_network_heatmap <- function(
     heatmap_height = NULL,
     heatmap_width = NULL,
     heatmap_title = NULL,
-    heatmap_color = c("#1966ad", "white", "#bb141a"),
+    heatmap_color = c(
+      "#1966ad",
+      "white",
+      "#bb141a"
+    ),
     border_color = "gray",
     rect_color = NA,
     anno_width = 1,
     anno_height = 1,
-    row_anno_type = NULL,
-    column_anno_type = NULL,
+    row_anno_type = c(
+      "boxplot",
+      "barplot",
+      "histogram",
+      "density",
+      "lines",
+      "points",
+      "horizon"
+    ),
+    column_anno_type = c(
+      "boxplot",
+      "barplot",
+      "histogram",
+      "density",
+      "lines",
+      "points"
+    ),
     legend_name = "Weight",
     row_title = "Regulators") {
   if (switch_matrix) {
@@ -155,10 +174,7 @@ plot_network_heatmap <- function(
   }
 
   if (!is.null(row_anno_type)) {
-    row_anno_type <- match.arg(
-      row_anno_type,
-      c("boxplot", "barplot", "histogram", "density", "lines", "points", "horizon")
-    )
+    row_anno_type <- match.arg(row_anno_type)
     row_anno <- switch(row_anno_type,
       "boxplot" = ComplexHeatmap::rowAnnotation(
         Anno = ComplexHeatmap::anno_boxplot(
@@ -215,10 +231,7 @@ plot_network_heatmap <- function(
   }
 
   if (!is.null(column_anno_type)) {
-    column_anno_type <- match.arg(
-      column_anno_type,
-      c("boxplot", "barplot", "histogram", "density", "lines", "points")
-    )
+    column_anno_type <- match.arg(column_anno_type)
     column_anno <- switch(column_anno_type,
       "boxplot" = ComplexHeatmap::columnAnnotation(
         Anno = ComplexHeatmap::anno_boxplot(
@@ -302,8 +315,6 @@ plot_network_heatmap <- function(
 #' @inheritParams network_format
 #' @param legend_position The position of legend.
 #'
-#' @import ggnetwork
-#'
 #' @return A ggplot2 object
 #' @export
 #'
@@ -312,16 +323,16 @@ plot_network_heatmap <- function(
 #' network_table <- inferCSN(example_matrix)
 #' plot_static_networks(
 #'   network_table,
-#'   regulators = network_table[1, 1]
+#'   regulators = "g1"
 #' )
 #' plot_static_networks(
 #'   network_table,
-#'   targets = network_table[1, 1]
+#'   targets = "g1"
 #' )
 #' plot_static_networks(
 #'   network_table,
-#'   regulators = network_table[1, 1],
-#'   targets = network_table[1, 2]
+#'   regulators = "g1",
+#'   targets = "g2"
 #' )
 plot_static_networks <- function(
     network_table,
@@ -417,15 +428,13 @@ plot_contrast_networks <- function(
     degree_value = 0,
     weight_value = 0,
     legend_position = "bottom") {
-  network_table <- network_format(network_table)
-
-  graph <- tidygraph::as_tbl_graph(network_table)
-  graph <- dplyr::mutate(
-    graph,
-    degree = tidygraph::centrality_degree(mode = "out")
-  )
-  graph <- dplyr::filter(graph, degree > degree_value)
-  graph <- tidygraph::activate(graph, edges)
+  graph <- network_format(network_table) |>
+    tidygraph::as_tbl_graph() |>
+    dplyr::mutate(
+      degree = tidygraph::centrality_degree(mode = "out")
+    ) |>
+    dplyr::filter(degree > degree_value) |>
+    tidygraph::activate(edges)
 
   g <- ggraph(graph, layout = "linear", circular = TRUE) +
     geom_edge_arc(
@@ -544,22 +553,22 @@ plot_dynamic_networks <- function(
     }
   )
 
-  # Get nodes information
-  nodes <- unique(c(network_table$regulator, network_table$target))
+  nodes <- unique(
+    c(network_table$regulator, network_table$target)
+  )
   dnodes <- data.frame(id = 1:length(nodes), label = nodes)
   edges <- dplyr::left_join(
     network_table,
     dnodes,
     by = c("regulator" = "label")
-  )
-  edges <- dplyr::rename(edges, from = id)
-  edges <- dplyr::left_join(
-    edges,
-    dnodes,
-    by = c("target" = "label")
-  )
-  edges <- dplyr::rename(edges, to = id)
-  edges <- dplyr::select(edges, from, to, weight, celltype)
+  ) |>
+    dplyr::rename(from = id) |>
+    dplyr::left_join(
+      dnodes,
+      by = c("target" = "label")
+    ) |>
+    dplyr::rename(to = id) |>
+    dplyr::select(from, to, weight, celltype)
   edges$Interaction <- ifelse(
     edges$weight > 0, "Activation", "Repression"
   )
@@ -590,24 +599,20 @@ plot_dynamic_networks <- function(
     layout = layout
   )
 
-  # Get out-degree for each regulator node per celltype
   nodes_data <- purrr::map_dfr(
     celltypes_list,
     .f = function(x) {
-      nodes_data_celltype <- network_table[which(network_table$celltype == x), ]
-      nodes_data_celltype <- dplyr::group_by(
-        nodes_data_celltype,
-        regulator
-      )
-      nodes_data_celltype <- dplyr::summarise(
-        nodes_data_celltype,
-        targets_num = dplyr::n()
-      )
-      nodes_data_celltype <- dplyr::arrange(
-        nodes_data_celltype,
-        dplyr::desc(targets_num)
-      )
-      nodes_data_celltype <- as.data.frame(nodes_data_celltype)
+      nodes_data_celltype <- network_table[which(network_table$celltype == x), ] |>
+        dplyr::group_by(
+          regulator
+        ) |>
+        dplyr::summarise(
+          targets_num = dplyr::n()
+        ) |>
+        dplyr::arrange(
+          dplyr::desc(targets_num)
+        ) |>
+        as.data.frame()
       nodes_data_celltype$label_genes <- as.character(
         nodes_data_celltype$regulator
       )
@@ -663,7 +668,7 @@ plot_dynamic_networks <- function(
       alpha = 0.9
     ) +
     geom_nodetext(
-      aes(label = label_genes), # , size = targets_num - 1
+      aes(label = label_genes),
       color = "black"
     ) +
     theme(aspect.ratio = 2, legend.position = "bottom") +

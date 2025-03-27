@@ -65,6 +65,7 @@ Sifting network
 data("example_matrix")
 data("example_meta_data")
 data("example_ground_truth")
+
 network_table <- inferCSN(example_matrix)
 network_table_sifted <- network_sift(network_table)
 network_table_sifted_entropy <- network_sift(
@@ -102,20 +103,20 @@ plot_network_heatmap(
   rect_color = "gray70"
 )
 
-calculate_auc(
+calculate_metrics(
   network_table,
   example_ground_truth,
-  plot = TRUE
+  return_plot = TRUE
 )
-calculate_auc(
+calculate_metrics(
   network_table_sifted,
   example_ground_truth,
-  plot = TRUE
+  return_plot = TRUE
 )
-calculate_auc(
+calculate_metrics(
   network_table_sifted_entropy,
   example_ground_truth,
-  plot = TRUE
+  return_plot = TRUE
 )
 }
 }

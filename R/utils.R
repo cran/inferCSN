@@ -1,44 +1,81 @@
 #' @title Print diagnostic message
 #'
+#' @description
+#' Integrate the message printing function with the `cli` package,
+#' and the \code{\link[base]{message}} function.
+#' The message could be suppressed by \code{\link[base]{suppressMessages}}.
+#'
+#' @md
 #' @param ... Text to print.
 #' @param verbose Logical value, default is *`TRUE`*.
 #' Whether to print the message.
 #' @param message_type Type of message, default is *`info`*.
-#' Could be choose one of *`info`*, *`warning`*, and *`error`*.
+#' Could be choose one of *`info`*, *`success`*, *`warning`*, and *`error`*.
 #' @param cli_model Logical value, default is *`TRUE`*.
 #' Whether to use the `cli` package to print the message.
-#' Add because the message is printed by \code{\link[base]{message}},
-#' the message could be suppressed by \code{\link[base]{suppressMessages}}.
 #'
-#' @md
 #' @export
 #' @examples
 #' log_message("Hello, ", "world!")
+#' log_message("Hello, ", "world!", message_type = "success")
+#' log_message("Hello, world!", message_type = "warning")
 #' suppressMessages(log_message("Hello, ", "world!"))
 #' log_message("Hello, world!", verbose = FALSE)
-#' log_message("Hello, world!", verbose = TRUE, message_type = "warning")
 log_message <- function(
     ...,
     verbose = TRUE,
-    message_type = "info",
+    message_type = c("info", "success", "warning", "error"),
     cli_model = TRUE) {
+  message_type <- match.arg(message_type)
+  msg <- paste0(...)
+
   if (message_type == "error") {
-    stop(...)
+    stop(msg, call. = FALSE)
   }
-  if (verbose) {
-    if (cli_model) {
-      switch(
-        EXPR = message_type,
-        "info" = cli::cli_alert_success(paste0(...)),
-        "warning" = cli::cli_alert_warning(paste0("Warning: ", ...))
-      )
-    } else {
-      switch(
-        EXPR = message_type,
-        "info" = message(paste0(...)),
-        "warning" = message(paste0("Warning: ", ...))
-      )
-    }
+
+  if (!verbose) {
+    return(invisible(NULL))
+  }
+
+  if (cli_model) {
+    switch(
+      EXPR = message_type,
+      "info" = cli::cli_alert_info(msg),
+      "success" = cli::cli_alert_success(msg),
+      "warning" = cli::cli_alert_warning(msg)
+    )
+  } else {
+    prefix <- switch(
+      EXPR = message_type,
+      "info" = "",
+      "success" = "",
+      "warning" = "WARNING: "
+    )
+    message(prefix, msg)
+  }
+
+  invisible(NULL)
+}
+
+#' @title Value selection operator
+#'
+#' @description
+#' This operator returns the left side if it's not NULL,
+#' otherwise it returns the right side.
+#'
+#' @param a The left side value to check
+#' @param b The right side value to use if a is NULL
+#'
+#' @export
+#'
+#' @examples
+#' NULL %ss% 10
+#' 5 %ss% 10
+`%ss%` <- function(a, b) {
+  if (is.null(a)) {
+    return(b)
+  } else {
+    return(a)
   }
 }
 
@@ -61,51 +98,47 @@ parallelize_fun <- function(
     verbose = TRUE) {
   if (cores == 1) {
     log_message(
-      "Using 1 core.",
+      "Using 1 core",
       verbose = verbose
     )
     if (verbose) {
-      return(pbapply::pblapply(X = x, FUN = fun))
+      output_list <- pbapply::pblapply(X = x, FUN = fun)
     }
     if (!verbose) {
-      return(base::lapply(X = x, FUN = fun))
+      output_list <- base::lapply(X = x, FUN = fun)
     }
   }
 
   if (cores > 1) {
     doParallel::registerDoParallel(cores = cores)
     log_message(
-      "Using ", foreach::getDoParWorkers(), " cores.",
+      "Using ", foreach::getDoParWorkers(), " cores",
       verbose = verbose
     )
 
     "%dopar%" <- foreach::"%dopar%"
     output_list <- foreach::foreach(
-      i = 1:length(x),
+      i = seq_along(x),
       .export = export_fun
     ) %dopar% {
       fun(x[[i]])
     }
-    names(output_list) <- names(x)
-
     doParallel::stopImplicitCluster()
-
-    return(output_list)
   }
+  names(output_list) <- x
+
+  return(output_list)
 }
 
 .check_parameters <- function(
     matrix,
     penalty,
-    algorithm,
     cross_validation,
     seed,
     n_folds,
-    percent_samples,
-    r_threshold,
+    r_squared_threshold,
     regulators,
     targets,
-    regulators_num,
     verbose,
     cores,
     ...) {
@@ -117,8 +150,7 @@ parallelize_fun <- function(
   if (length(dim(matrix)) != 2) {
     log_message(
       "The input matrix must be a two-dimensional matrix.",
-      message_type = "error",
-      verbose = verbose
+      message_type = "error"
     )
   }
 
@@ -130,22 +162,45 @@ parallelize_fun <- function(
   }
 
   match.arg(penalty, c("L0", "L0L1", "L0L2"))
-  match.arg(algorithm, c("CD", "CDPSI"))
 
   if (!is.numeric(seed)) {
     seed <- 1
     log_message(
-      "random seed is not a valid value, initialize it to 1.",
+      "initialize random seed to 1.",
       message_type = "warning",
       verbose = verbose
     )
   }
 
-  if (!(is.numeric(percent_samples) && percent_samples > 0 && percent_samples <= 1)) {
+  if (r_squared_threshold < 0 || r_squared_threshold > 1) {
     log_message(
-      "Please set `percent_samples` value between: (0, 1].",
+      "Please set 'r_squared_threshold' value between: [0, 1].",
       message_type = "error"
     )
+  }
+
+  if (!is.null(regulators)) {
+    intersect_regulators <- intersect(regulators, colnames(matrix))
+    if (length(intersect_regulators) < 2) {
+      log_message(
+        "The input genes must contain at least 2 regulator.",
+        message_type = "error"
+      )
+    }
+
+    if (length(intersect_regulators) < length(regulators)) {
+      log_message(
+        length(intersect_regulators), " out of ",
+        length(regulators), " candidate regulators are in the input matrix.",
+        message_type = "warning",
+        verbose = verbose
+      )
+    } else {
+      log_message(
+        "Using ", length(intersect_regulators), " regulator(s).",
+        verbose = verbose
+      )
+    }
   }
 
   if (!is.null(targets)) {
@@ -164,23 +219,9 @@ parallelize_fun <- function(
         message_type = "warning",
         verbose = verbose
       )
-    }
-  }
-
-  if (!is.null(regulators)) {
-    intersect_regulators <- intersect(regulators, colnames(matrix))
-    if (length(intersect_regulators) == 0) {
+    } else {
       log_message(
-        "The input genes must contain at least 1 regulator.",
-        message_type = "error"
-      )
-    }
-
-    if (length(intersect_regulators) < length(regulators)) {
-      log_message(
-        length(intersect_regulators), " out of ",
-        length(regulators), " candidate regulators are in the input matrix.",
-        message_type = "warning",
+        "Using ", length(intersect_targets), " target(s).",
         verbose = verbose
       )
     }
@@ -188,7 +229,9 @@ parallelize_fun <- function(
 
   if (!is.numeric(cores) || cores < 1) {
     log_message(
-      "`cores` should be a stricly positive integer.",
+      "`cores` should be a positive integer, initialize it to 1.",
+      message_type = "warning",
+      verbose = verbose
     )
   }
 
@@ -218,7 +261,200 @@ parallelize_fun <- function(
   }
 }
 
-#' @title Convert dgCMatrix into a dense matrix
+#' @title Generate a simulated sparse matrix for single-cell data testing
+#'
+#' @param nrow Number of rows (genes) in the matrix.
+#' @param ncol Number of columns (cells) in the matrix.
+#' @param density Density of non-zero elements (default: 0.1, representing 90 sparsity).
+#' @param distribution_fun Function to generate non-zero values.
+#' @param seed Random seed for reproducibility.
+#'
+#' @return A sparse matrix of class "dgCMatrix"
+#' @export
+#'
+#' @examples
+#' simulate_sparse_matrix(2000, 500) |>
+#'   check_sparsity()
+simulate_sparse_matrix <- function(
+    nrow,
+    ncol,
+    density = 0.1,
+    distribution_fun = function(n) stats::rpois(n, lambda = 0.5) + 1,
+    seed = 1) {
+  set.seed(seed)
+
+  nnz <- round(nrow * ncol * density)
+
+  i <- sample(1:nrow, nnz, replace = TRUE)
+  j <- sample(1:ncol, nnz, replace = TRUE)
+  x <- distribution_fun(nnz)
+
+  Matrix::sparseMatrix(
+    i = i,
+    j = j,
+    x = x,
+    dims = c(nrow, ncol),
+    dimnames = list(
+      paste0("cell_", 1:nrow),
+      paste0("gene_", 1:ncol)
+    )
+  )
+}
+
+#' @title Correlation and covariance calculation for sparse matrix
+#'
+#' @inheritParams sparse_cor
+pearson_correlation <- function(x, y = NULL) {
+  if (!methods::is(x, "sparseMatrix")) {
+    stop("x should be a sparse matrix.")
+  }
+  if (!is.null(y) && !methods::is(y, "sparseMatrix")) {
+    stop("y should be a sparse matrix.")
+  }
+
+  result <- sparseCovCor(x, y)
+
+  return(
+    list(
+      cov = result$cov,
+      cor = result$cor
+    )
+  )
+}
+
+#' @title Safe correlation function which returns a sparse matrix without missing values
+#'
+#' @param x Sparse matrix or character vector.
+#' @param y Sparse matrix or character vector.
+#' @param method Method to use for calculating the correlation coefficient.
+#' @param allow_neg Logical. Whether to allow negative values or set them to 0.
+#' @param remove_na Logical. Whether to replace NA values with 0.
+#' @param remove_inf Logical. Whether to replace infinite values with 1.
+#' @param ... Other arguments passed to \code{\link[stats]{cor}} function.
+#'
+#' @return A correlation matrix.
+#'
+#' @export
+#'
+#' @examples
+#' m1 <- simulate_sparse_matrix(
+#'   1000, 1000,
+#'   density = 0.01
+#' )
+#' m2 <- simulate_sparse_matrix(
+#'   1000, 500,
+#'   density = 0.01
+#' )
+#'
+#' all.equal(
+#'   as.matrix(sparse_cor(m1)),
+#'   cor(as_matrix(m1))
+#' )
+#' all.equal(
+#'   as.matrix(sparse_cor(m1, m2)),
+#'   cor(as_matrix(m1), as_matrix(m2))
+#' )
+#'
+#' system.time(
+#'   sparse_cor(m1)
+#' )
+#' system.time(
+#'   cor(as_matrix(m1))
+#' )
+#' system.time(
+#'   sparse_cor(m1, m2)
+#' )
+#' system.time(
+#'   cor(as_matrix(m1), as_matrix(m2))
+#' )
+#'
+#' # add missing values
+#' m1[sample(1:500, 10)] <- NA
+#' m2[sample(1:500, 10)] <- NA
+#'
+#' sparse_cor(m1, m2)[1:5, 1:5]
+sparse_cor <- function(
+    x,
+    y = NULL,
+    method = "pearson",
+    allow_neg = TRUE,
+    remove_na = TRUE,
+    remove_inf = TRUE,
+    ...) {
+  if (!methods::is(x, "sparseMatrix")) {
+    x <- as_matrix(x, sparse = TRUE)
+  }
+
+  if (!is.null(y)) {
+    if (!methods::is(y, "sparseMatrix")) {
+      y <- as_matrix(y, sparse = TRUE)
+    }
+    if (nrow(x) != nrow(y)) {
+      stop("x and y must have the same number of rows.")
+    }
+  }
+
+  corr_mat <- switch(
+    EXPR = method,
+    "pearson" = pearson_correlation(x, y)$cor,
+    "spearman" = {
+      if (is.null(y)) {
+        stats::cor(
+          as_matrix(x),
+          method = "spearman",
+          ...
+        )
+      } else {
+        stats::cor(
+          as_matrix(x),
+          as_matrix(y),
+          method = "spearman",
+          ...
+        )
+      }
+    },
+    "kendall" = {
+      if (is.null(y)) {
+        stats::cor(
+          as_matrix(x),
+          method = "kendall",
+          ...
+        )
+      } else {
+        stats::cor(
+          as_matrix(x),
+          as_matrix(y),
+          method = "kendall",
+          ...
+        )
+      }
+    }
+  )
+
+  if (is.null(y)) {
+    colnames(corr_mat) <- colnames(x)
+  } else {
+    colnames(corr_mat) <- colnames(y)
+  }
+  rownames(corr_mat) <- colnames(x)
+
+  if (remove_na) {
+    corr_mat[is.na(corr_mat)] <- 0
+  }
+  if (remove_inf) {
+    corr_mat[is.infinite(corr_mat)] <- 1
+  }
+
+  corr_mat <- as_matrix(corr_mat, sparse = TRUE)
+
+  if (!allow_neg) {
+    corr_mat[corr_mat < 0] <- 0
+  }
+
+  return(corr_mat)
+}
+
+#' @title Convert sparse matrix into dense matrix
 #'
 #' @param x A matrix.
 #' @param parallel Logical value, default is *`FALSE`*.
@@ -229,17 +465,10 @@ parallelize_fun <- function(
 #' @export
 #'
 #' @examples
-#' dims_i <- 2000
-#' dims_j <- 2000
-#' sparse_matrix <- Matrix::sparseMatrix(
-#'   i = sample(1:dims_i, 500),
-#'   j = sample(1:dims_j, 500),
-#'   x = rnorm(500),
-#'   dims = c(dims_i, dims_j),
-#'   dimnames = list(
-#'     paste0("a", rep(1:dims_i)),
-#'     paste0("b", rep(1:dims_j))
-#'   )
+#' sparse_matrix <- simulate_sparse_matrix(
+#'   2000,
+#'   2000,
+#'   density = 0.01
 #' )
 #'
 #' system.time(as.matrix(sparse_matrix))
@@ -262,11 +491,21 @@ parallelize_fun <- function(
 #' )
 #'
 #' \dontrun{
+#' network_table_0 <- inferCSN(example_matrix)
+#'
 #' network_table_1 <- inferCSN(
 #'   as_matrix(example_matrix, sparse = TRUE)
 #' )
 #' network_table_2 <- inferCSN(
 #'   as(example_matrix, "sparseMatrix")
+#' )
+#'
+#' plot_scatter(
+#'   data.frame(
+#'     network_table_0$weight,
+#'     network_table_1$weight
+#'   ),
+#'   legend_position = "none"
 #' )
 #'
 #' plot_scatter(
@@ -283,13 +522,10 @@ as_matrix <- function(
     sparse = FALSE) {
   if (!methods::is(x, "sparseMatrix")) {
     if (sparse) {
-      non_zero <- which(x != 0, arr.ind = TRUE)
       return(
-        Matrix::sparseMatrix(
-          i = non_zero[, 1],
-          j = non_zero[, 2],
-          x = x[non_zero],
-          dims = dim(x),
+        Matrix::Matrix(
+          x,
+          sparse = TRUE,
           dimnames = dimnames(x)
         )
       )
@@ -300,9 +536,7 @@ as_matrix <- function(
     row_pos <- x@i
     col_pos <- findInterval(seq_along(x@x) - 1, x@p[-1])
     if (parallel) {
-      matrix <- .Call(
-        "_inferCSN_asMatrixParallel",
-        PACKAGE = "inferCSN",
+      matrix <- asMatrixParallel(
         row_pos,
         col_pos,
         x@x,
@@ -310,9 +544,7 @@ as_matrix <- function(
         x@Dim[2]
       )
     } else {
-      matrix <- .Call(
-        "_inferCSN_asMatrix",
-        PACKAGE = "inferCSN",
+      matrix <- asMatrix(
         row_pos,
         col_pos,
         x@x,
@@ -349,170 +581,10 @@ check_sparsity <- function(x) {
   return(sparsity)
 }
 
-#' @title Format network table
-#'
-#' @param network_table The weight data table of network.
-#' @param regulators Regulators list.
-#' @param targets Targets list.
-#' @param abs_weight Logical value, default is *`TRUE`*, whether to perform absolute value on weights,
-#'  and when set `abs_weight` to *`TRUE`*,
-#'  the output of weight table will create a new column named `Interaction`.
-#'
-#' @md
-#' @return Formated network table
-#' @export
-#'
-#' @examples
-#' data("example_matrix")
-#' network_table <- inferCSN(example_matrix)
-#'
-#' network_format(
-#'   network_table,
-#'   regulators = c("g1")
-#' )
-#'
-#' network_format(
-#'   network_table,
-#'   regulators = c("g1"),
-#'   abs_weight = FALSE
-#' )
-#'
-#' network_format(
-#'   network_table,
-#'   targets = c("g3")
-#' )
-#'
-#' network_format(
-#'   network_table,
-#'   regulators = c("g1", "g3"),
-#'   targets = c("g3", "g5")
-#' )
-network_format <- function(
-  network_table,
-  regulators = NULL,
-  targets = NULL,
-  abs_weight = TRUE) {
-colnames(network_table) <- c("regulator", "target", "weight")
-network_table$weight <- as.numeric(network_table$weight)
-network_table <- dplyr::filter(network_table, weight != 0)
-if (!is.null(regulators)) {
-  network_table <- purrr::map_dfr(
-    unique(regulators), function(x) {
-      dplyr::filter(network_table, regulator == x)
-    }
-  )
-}
-if (!is.null(targets)) {
-  network_table <- purrr::map_dfr(
-    unique(targets), function(x) {
-      dplyr::filter(network_table, target == x)
-    }
-  )
-}
-
-if (abs_weight) {
-  network_table$Interaction <- ifelse(
-    network_table$weight < 0, "Repression", "Activation"
-  )
-  network_table$weight <- abs(network_table$weight)
-}
-
-network_table <- network_table[order(
-  abs(as.numeric(network_table$weight)),
-  decreasing = TRUE
-), ]
-rownames(network_table) <- NULL
-
-return(network_table)
-}
-
-#' @title Filter and sort matrix
-#'
-#' @inheritParams network_format
-#' @param network_matrix The matrix of network weight.
-#'
-#' @return Filtered and sorted matrix
-#' @export
-#'
-#' @examples
-#' data("example_matrix")
-#' network_table <- inferCSN(example_matrix)
-#' network_matrix <- table_to_matrix(network_table)
-#' filter_sort_matrix(network_matrix)[1:6, 1:6]
-#'
-#' filter_sort_matrix(
-#'   network_matrix,
-#'   regulators = c("g1", "g2"),
-#'   targets = c("g3", "g4")
-#' )
-filter_sort_matrix <- function(
-  network_matrix,
-  regulators = NULL,
-  targets = NULL) {
-network_matrix[is.na(network_matrix)] <- 0
-if (!is.null(regulators)) {
-  regulators <- intersect(rownames(network_matrix), regulators)
-} else {
-  regulators <- rownames(network_matrix)
-}
-if (!is.null(targets)) {
-  targets <- intersect(colnames(network_matrix), targets)
-} else {
-  targets <- colnames(network_matrix)
-}
-
-unique_regulators <- gtools::mixedsort(unique(regulators))
-unique_targets <- gtools::mixedsort(unique(targets))
-network_matrix <- network_matrix[unique_regulators, unique_targets]
-
-return(network_matrix)
-}
-
-#' @title Switch network table to matrix
-#'
-#' @inheritParams network_format
-#'
-#' @return Weight matrix
-#' @export
-#'
-#' @examples
-#' data("example_matrix")
-#' network_table <- inferCSN(example_matrix)
-#' head(network_table)
-#'
-#' table_to_matrix(network_table)[1:6, 1:6]
-#'
-#' table_to_matrix(
-#'   network_table,
-#'   regulators = c("g1", "g2"),
-#'   targets = c("g3", "g4")
-#' )
-table_to_matrix <- function(
-    network_table,
-    regulators = NULL,
-    targets = NULL) {
-  network_table <- network_format(
-    network_table,
-    abs_weight = FALSE
-  )
-  network_matrix <- .Call(
-    "_inferCSN_tableToMatrix",
-    PACKAGE = "inferCSN",
-    network_table
-  )
-  network_matrix <- filter_sort_matrix(
-    network_matrix,
-    regulators = regulators,
-    targets = targets
-  )
-
-  return(network_matrix)
-}
-
 #' @title Extracts a specific solution in the regularization path
 #'
-#' @inheritParams inferCSN
-#' @param object The output of \code{\link{fit_sparse_regression}}.
+#' @inheritParams fit_srm
+#' @param object The output of \code{\link{sparse_regression}}.
 #' @param lambda The value of lambda at which to extract the solution.
 #' @param gamma The value of gamma at which to extract the solution.
 #' @param ... Other parameters
@@ -532,7 +604,6 @@ coef.srm <- function(
   }
 
   if (is.null(lambda) && is.null(gamma) && is.null(regulators_num)) {
-    # If all three are null, return all solutions
     t <- do.call(cbind, object$beta)
     if (object$settings$intercept) {
       intercepts <- unlist(object$a0)
@@ -550,8 +621,8 @@ coef.srm <- function(
 
   indices <- NULL
   if (!is.null(lambda)) {
-    diffLambda <- abs(lambda - object$lambda[[gamma_index]])
-    indices <- which(diffLambda == min(diffLambda))
+    diff_lambda <- abs(lambda - object$lambda[[gamma_index]])
+    indices <- which(diff_lambda == min(diff_lambda))
   } else if (!is.null(regulators_num)) {
     diff_regulators_num <- abs(
       regulators_num - object$suppSize[[gamma_index]]
@@ -595,15 +666,15 @@ coef.srm_cv <- function(
   )
 }
 
-#' @title Prints a summary of `fit_sparse_regression`
+#' @title Prints a summary of `sparse_regression`
 #'
-#' @param x The output of \code{\link{fit_sparse_regression}}.
+#' @param x The output of \code{\link{sparse_regression}}.
 #' @param ... Other parameters
 #'
 #' @method print srm
 #'
 #' @md
-#' @return Return information of `fit_sparse_regression`
+#' @return Return information of `sparse_regression`
 #' @export
 print.srm <- function(x, ...) {
   gammas <- rep(x$gamma, times = lapply(x$lambda, length))
@@ -628,7 +699,7 @@ print.srm_cv <- function(x, ...) {
 
 #' @title Predicts response for a given sample
 #'
-#' @param object The output of fit_sparse_regression.
+#' @param object The output of sparse_regression.
 #' @param newx A matrix on which predictions are made. The matrix should have p columns
 #' @param lambda The value of lambda to use for prediction.
 #' A summary of the lambdas in the regularization path can be obtained using \code{\link{print.srm}}.
@@ -639,7 +710,8 @@ print.srm_cv <- function(x, ...) {
 #' @method predict srm
 #'
 #' @details
-#' If both lambda and gamma are not supplied, then a matrix of predictions for all the solutions in the regularization path is returned.
+#' If both lambda and gamma are not supplied,
+#' then a matrix of predictions for all the solutions in the regularization path is returned.
 #' If lambda is supplied but gamma is not, the smallest value of gamma is used.
 #' In case of logistic regression, probability values are returned.
 #'
@@ -688,6 +760,7 @@ predict.srm_cv <- function(
 #' @param method Method used for normalization.
 #' @param na_rm Whether to remove `NA` values,
 #' and if setting TRUE, using `0` instead.
+#' @param ... Parameters for other methods.
 #'
 #' @md
 #' @return Normalized numeric vector
@@ -707,10 +780,20 @@ predict.srm_cv <- function(
 normalization <- function(
     x,
     method = "max_min",
-    na_rm = TRUE) {
+    na_rm = TRUE,
+    ...) {
   method <- match.arg(
     method,
-    c("max_min", "maximum", "sum", "softmax", "z_score", "mad", "unit_vector")
+    c(
+      "max_min",
+      "maximum",
+      "sum",
+      "softmax",
+      "z_score",
+      "mad",
+      "unit_vector",
+      "robust_scale"
+    )
   )
   na_index <- which(is.na(x))
   x[na_index] <- 0
@@ -726,7 +809,9 @@ normalization <- function(
       x / sum(abs(x))
     },
     "softmax" = {
-      exp(x - max(x)) / sum(exp(x - max(x)))
+      # exp(x - max(x)) / sum(exp(x - max(x)))
+      temp <- (x - mean(x)) / stats::sd(x)
+      exp(temp) / sum(exp(temp))
     },
     "z_score" = {
       (x - mean(x)) / stats::sd(x)
