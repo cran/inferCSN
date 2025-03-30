@@ -1,7 +1,7 @@
-bf5c8ff9d6f749491007ab9d1ead163c *DESCRIPTION
+c12fd6d86a06d130be043a53e998574d *DESCRIPTION
 5d82e9946ace180a66d2fe6db26780f1 *LICENSE
 0f8a1f018597c7205c749c345948fdea *NAMESPACE
-fba1365ae1c4e7fafa4d7ce673864055 *R/RcppExports.R
+2049ab048fd3b22820b14241024b117e *R/RcppExports.R
 13bb7bf0b9f511756ad0d75f731d1437 *R/calculate_gene_rank.R
 c6d322165785a8fa5b40ffa0f41b6806 *R/data.R
 ac54a8d389f9c8d499a34a5c57d50d59 *R/import.R
@@ -15,7 +15,7 @@ d63dcfcf10dd2b564acddacc53b74caa *R/plotting_functions.R
 4855a7bf63f632256b0948b4e6efd12f *R/single_network.R
 3d3b7526208c4c216223747973b0c46c *R/sparse_regression_model.R
 95e1f310c261fd414a88b0a341d0ce33 *R/subsampling.R
-d4f2074a480942b9c6a157b821b060a2 *R/utils.R
+36dea1be766a429ad0f88d5746064623 *R/utils.R
 c31ce09121460ef751a8d22a775886f8 *README.md
 c865cc831c3370c46b93efe15036051c *data/example_ground_truth.rda
 7876ce105fe62fea51999bf207905aab *data/example_matrix.rda
@@ -70,7 +70,8 @@ d5ac88f4b53994fd16f115e99e4e0cc7 *man/prepare_binary_predictions.Rd
 e097fb0f834bfc70cd722f45cfba9529 *man/r_square.Rd
 5c7f89ae1ac4d5c068763a404d266463 *man/simulate_sparse_matrix.Rd
 b471700d03e37e45a1728e1d4925408c *man/single_network.Rd
-cfeed073412a90bc3b1c7d068f2425df *man/sparse_cor.Rd
+7b38fffcd007a467037daed6e7e773ee *man/sparse_cor.Rd
+17f27de164cfe2cb3c9ec73714acce68 *man/sparse_cov_cor.Rd
 1d0a18c7466b38927b2e017eb5d4ba2f *man/sparse_regression.Rd
 67bc48e7b29bc92aef8768c99c5366be *man/split_indices.Rd
 60cb5471d0352a9b18893eaed6f20b9f *man/subsampling.Rd
@@ -87,7 +88,7 @@ b5a09bddd72266cdfd07be93429d0335 *src/CDL012Swaps.cpp
 5a59c8342f64ee0f58b0b1c1153a2296 *src/Makevars
 e3677cd42a05775075dd2249bbe044b6 *src/Makevars.win
 5b6b236b9fcf107a7e232fd6ba79e59e *src/Normalize.cpp
-171779953c0a3db51256b61277a474ae *src/RcppExports.cpp
+232c01f173f8e637dd8b5edd140bd197 *src/RcppExports.cpp
 9708933fff3a1b9dc04f7a5c77676fd3 *src/Test_Interface.cpp
 21d114bd5c3a9dda6496ab9412c54949 *src/asMatrix.cpp
 6922292166664390807484db1a4d4e6b *src/filter_sort_matrix.cpp
@@ -117,7 +118,6 @@ deee7d81e16e0bdb18a173d7e68b1e4d *src/include/MakeCD.h
 92adf18d7f45b84fa413538c9f56a3b3 *src/matrix_to_table.cpp
 5386e845ca01638adb96a48dc6425de1 *src/network_evaluation.cpp
 f005de8362997b9775fcf42591edea7d *src/network_format.cpp
-f6a243e27bf8329bd1569d1b95d0f034 *src/sparseCovCor.cpp
 c8ab3317c092ff27dc96506a858e47c4 *src/split_indices.cpp
 c208aef9a23c4d5fe1951a0d39ee6c44 *src/table_to_matrix.cpp
 173eb9db03fc11457ba0e1f0ec8e63c6 *src/utils.cpp

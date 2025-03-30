@@ -1,8 +1,8 @@
 Type: Package
 Package: inferCSN
 Title: Inferring Cell-Specific Gene Regulatory Network
-Version: 1.1.6
-Date: 2025-03-27
+Version: 1.1.7
+Date: 2025-03-30
 Authors@R: 
     person("Meng", "Xu", email = "mengxu98@qq.com", role = c("aut", "cre"), comment = c(ORCID = "0000-0002-8300-1054"))
 Maintainer: Meng Xu <mengxu98@qq.com>
@@ -26,7 +26,7 @@ LazyData: true
 RoxygenNote: 7.3.2
 Language: en-US
 NeedsCompilation: yes
-Packaged: 2025-03-27 03:40:57 UTC; mx
+Packaged: 2025-03-30 15:36:10 UTC; mx
 Author: Meng Xu [aut, cre] (<https://orcid.org/0000-0002-8300-1054>)
 Repository: CRAN
-Date/Publication: 2025-03-27 04:10:05 UTC
+Date/Publication: 2025-03-30 17:00:02 UTC
