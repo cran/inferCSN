@@ -11,7 +11,7 @@
 #' @export
 #'
 #' @examples
-#' data("example_matrix")
+#' data(example_matrix)
 #' data("example_ground_truth")
 #' subsample_matrix <- subsampling(
 #'   example_matrix,
@@ -61,7 +61,7 @@ subsampling <- function(
   )
 
   if (!(is.numeric(subsampling_ratio) && subsampling_ratio > 0 && subsampling_ratio <= 1)) {
-    log_message(
+    thisutils::log_message(
       "Please set 'subsampling_ratio' value between: (0, 1].",
       message_type = "error"
     )
@@ -100,15 +100,13 @@ subsampling <- function(
   )
 
   if (return_sparse) {
-    matrix <- as_matrix(matrix, sparse = TRUE)
+    matrix <- thisutils::as_matrix(matrix, return_sparse = TRUE)
   } else {
-    matrix <- as_matrix(matrix)
+    matrix <- thisutils::as_matrix(matrix)
   }
 
-  log_message(
-    "Subsample matrix generated, dimensions: ",
-    nrow(matrix), " cells by ",
-    ncol(matrix), " genes.",
+  thisutils::log_message(
+    "Subsample matrix generated, dimensions: {.val {nrow(matrix)}} cells by {.val {ncol(matrix)}} genes",
     verbose = verbose
   )
 

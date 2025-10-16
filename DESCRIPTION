@@ -1,32 +1,31 @@
 Type: Package
 Package: inferCSN
 Title: Inferring Cell-Specific Gene Regulatory Network
-Version: 1.1.7
-Date: 2025-03-30
+Version: 1.2.0
+Date: 2025-10-15
 Authors@R: 
     person("Meng", "Xu", email = "mengxu98@qq.com", role = c("aut", "cre"), comment = c(ORCID = "0000-0002-8300-1054"))
 Maintainer: Meng Xu <mengxu98@qq.com>
-Description: An R package for inferring cell-type specific gene regulatory network from single-cell RNA data.
+Description: An R package for inferring cell-type specific gene regulatory network from single-cell RNA-seq data.
 License: MIT + file LICENSE
 URL: https://mengxu98.github.io/inferCSN/
 BugReports: https://github.com/mengxu98/inferCSN/issues
 Depends: R (>= 4.1.0)
-Imports: cli, dplyr, doParallel, foreach, ggnetwork, ggplot2, ggraph,
-        Matrix, methods, parallel, pbapply, purrr, Rcpp, RcppArmadillo,
-        RcppParallel, stats
+Imports: cli, dplyr, ggnetwork, ggplot2, ggraph, L0Learn, Matrix,
+        methods, purrr, Rcpp, stats, thisutils
 Suggests: ComplexHeatmap, circlize, gtools, gganimate, ggExtra,
         ggpointdensity, ggpubr, igraph, irlba, network, patchwork,
         plotly, precrec, pROC, proxy, tidygraph, RANN, RColorBrewer,
         Rtsne, RTransferEntropy, uwot, viridis
-LinkingTo: Rcpp, RcppArmadillo, RcppParallel
-Config/Needs/website: mengxu98/mxtemplate
+LinkingTo: Rcpp
+Config/Needs/website: mengxu98/thistemplate
 Config/testthat/edition: 3
 Encoding: UTF-8
 LazyData: true
 RoxygenNote: 7.3.2
 Language: en-US
 NeedsCompilation: yes
-Packaged: 2025-03-30 15:36:10 UTC; mx
-Author: Meng Xu [aut, cre] (<https://orcid.org/0000-0002-8300-1054>)
+Packaged: 2025-10-16 02:15:09 UTC; mx
+Author: Meng Xu [aut, cre] (ORCID: <https://orcid.org/0000-0002-8300-1054>)
 Repository: CRAN
-Date/Publication: 2025-03-30 17:00:02 UTC
+Date/Publication: 2025-10-16 02:30:02 UTC

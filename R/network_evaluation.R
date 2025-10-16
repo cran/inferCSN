@@ -5,41 +5,40 @@
 #' including classification performance, precision-recall metrics, and network topology metrics.
 #'
 #' @md
-#' @param network_table A data frame of predicted network structure containing:
-#' \itemize{
-#' \item *`regulator`* - Source nodes of the network edges
-#' \item *`target`* - Target nodes of the network edges
-#' \item *`weight`* - Edge weights representing prediction confidence
-#' }
-#' @param ground_truth A data frame of ground truth network with the same format as *`network_table`*.
-#' @param metric_type The type of metric to return, default is *`all`*.
+#' @param network_table A data frame.
+#' @param ground_truth A data frame of ground truth network with the same format as network_table.
+#' @param metric_type The type of metric to return.
+#' Default is `"all"`.
 #' This can take any of the following choices:
 #' \itemize{
-#' \item *`all`* - Returns all available metrics with *Performance Metrics* plot
-#' \item *`auc`* - Returns both AUROC and AUPRC with their plots
-#' \item *`auroc`* - Area Under ROC Curve with plot
-#' \item *`auprc`* - Area Under Precision-Recall Curve with plot
-#' \item *`precision`* - Proportion of correct predictions among positive predictions
-#' \item *`recall`* - Proportion of actual positives correctly identified
-#' \item *`f1`* - Harmonic mean of precision and recall
-#' \item *`accuracy`* - Overall classification accuracy
-#' \item *`si`* - Set Intersection, counting correctly predicted edges
-#' \item *`ji`* - Jaccard Index, measuring overlap between predicted and true networks
+#'   \item all Returns all available metrics with *Performance Metrics* plot.
+#'   \item auc Returns both AUROC and AUPRC with their plots.
+#'   \item auroc Area Under ROC Curve with plot.
+#'   \item auprc Area Under Precision-Recall Curve with plot.
+#'   \item precision Proportion of correct predictions among positive predictions.
+#'   \item recall Proportion of actual positives correctly identified.
+#'   \item f1 Harmonic mean of precision and recall.
+#'   \item accuracy Overall classification accuracy.
+#'   \item si Set Intersection, counting correctly predicted edges.
+#'   \item ji Jaccard Index, measuring overlap between predicted and true networks.
 #' }
-#' @param return_plot Logical value, default is *`FALSE`*, whether to generate visualization plots
-#' @param line_color Color for plot lines, default is *`#1563cc`*
-#' @param line_width Width for plot lines, default is *`1`*
+#' @param return_plot Whether to generate visualization plots.
+#' Default is `FALSE`.
+#' @param line_color Color for plot lines.
+#' Default is `#1563cc`.
+#' @param line_width Width for plot lines.
+#' Default is `1`.
 #'
 #' @return A list containing:
 #' \itemize{
-#' \item *`metrics`* - A data frame with requested metrics
-#' \item *`plot`* - A plot object if return_plot = TRUE (optional)
+#'   \item metrics A data frame with requested metrics.
+#'   \item plot A plot object if return_plot = TRUE (optional).
 #' }
 #'
 #' @export
 #'
 #' @examples
-#' data("example_matrix")
+#' data(example_matrix)
 #' data("example_ground_truth")
 #' network_table <- inferCSN(example_matrix)
 #' calculate_metrics(
@@ -119,7 +118,7 @@ calculate_metrics <- function(
 
       if (return_plot) {
         plot_metrics <- metrics_df[metrics_df$Metric != "SI", ]
-        metrics_plot <- plot_all_metrics(plot_metrics, line_color)
+        metrics_plot <- .plot_all_metrics(plot_metrics, line_color)
         list(
           metrics = metrics_df,
           plot = metrics_plot
@@ -283,7 +282,7 @@ prepare_binary_predictions <- function(
 #' @export
 #'
 #' @examples
-#' data("example_matrix")
+#' data(example_matrix)
 #' data("example_ground_truth")
 #' network_table <- inferCSN(example_matrix)
 #' calculate_auroc(
@@ -353,7 +352,7 @@ calculate_auroc <- function(
 #' @export
 #'
 #' @examples
-#' data("example_matrix")
+#' data(example_matrix)
 #' data("example_ground_truth")
 #' network_table <- inferCSN(example_matrix)
 #' calculate_auprc(
@@ -424,7 +423,7 @@ calculate_auprc <- function(
 #' @export
 #'
 #' @examples
-#' data("example_matrix")
+#' data(example_matrix)
 #' data("example_ground_truth")
 #' network_table <- inferCSN(example_matrix)
 #' calculate_auc(
@@ -493,7 +492,7 @@ calculate_auc <- function(
 #' @export
 #'
 #' @examples
-#' data("example_matrix")
+#' data(example_matrix)
 #' data("example_ground_truth")
 #' network_table <- inferCSN(example_matrix)
 #' calculate_precision(
@@ -541,7 +540,7 @@ calculate_precision <- function(
 #' @export
 #'
 #' @examples
-#' data("example_matrix")
+#' data(example_matrix)
 #' data("example_ground_truth")
 #' network_table <- inferCSN(example_matrix)
 #' calculate_recall(
@@ -589,7 +588,7 @@ calculate_recall <- function(
 #' @export
 #'
 #' @examples
-#' data("example_matrix")
+#' data(example_matrix)
 #' data("example_ground_truth")
 #' network_table <- inferCSN(example_matrix)
 #' calculate_f1(
@@ -645,7 +644,7 @@ calculate_f1 <- function(
 #' @export
 #'
 #' @examples
-#' data("example_matrix")
+#' data(example_matrix)
 #' data("example_ground_truth")
 #' network_table <- inferCSN(example_matrix)
 #' calculate_accuracy(
@@ -695,7 +694,7 @@ calculate_accuracy <- function(
 #' @export
 #'
 #' @examples
-#' data("example_matrix")
+#' data(example_matrix)
 #' data("example_ground_truth")
 #' network_table <- inferCSN(example_matrix)
 #' calculate_si(
@@ -738,7 +737,7 @@ calculate_si <- function(
 #' @export
 #'
 #' @examples
-#' data("example_matrix")
+#' data(example_matrix)
 #' data("example_ground_truth")
 #' network_table <- inferCSN(example_matrix)
 #' calculate_ji(
@@ -784,17 +783,7 @@ calculate_ji <- function(
   )
 }
 
-#' @title Create Performance Metrics Plot
-#'
-#' @description
-#' Creates a bar plot of all performance metrics
-#'
-#' @param metrics_df Data frame containing metrics and their values
-#' @param line_color Color for bars
-#'
-#' @return A ggplot object
-#' @keywords internal
-plot_all_metrics <- function(metrics_df, line_color = "#1563cc") {
+.plot_all_metrics <- function(metrics_df, line_color = "#1563cc") {
   ggplot(
     metrics_df,
     aes(x = stats::reorder(Metric, -Value), y = Value)
@@ -822,20 +811,15 @@ plot_all_metrics <- function(metrics_df, line_color = "#1563cc") {
 #'
 #' @param network_table A data frame of predicted network structure.
 #' @param ground_truth A data frame of ground truth network.
-#' @param color_pattern A list of colors for different categories, with default values:
-#' \itemize{
-#'   \item *`predicted`* - Color for predicted edges (*`gray`*)
-#'   \item *`ground_truth`* - Color for ground truth edges (*`#bb141a`*)
-#'   \item *`overlap`* - Color for overlapping edges (*`#1966ad`*)
-#'   \item *`total`* - Color for total counts (*`#6C757D`*)
-#' }
+#' @param color_pattern A list of colors for different categories.
 #'
-#' @return A patchwork plot object containing network edge comparison and distribution plots
+#' @return
+#' A patchwork plot object containing network edge comparison and distribution plots
 #'
 #' @export
 #'
 #' @examples
-#' data("example_matrix")
+#' data(example_matrix)
 #' data("example_ground_truth")
 #' network_table <- inferCSN(example_matrix)
 #' plot_edges_comparison(

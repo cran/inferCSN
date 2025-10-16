@@ -5,13 +5,11 @@
 #' @param target The target gene.
 #'
 #' @return A data frame of the single target gene network.
-#'  The data frame has three columns:
-#'  \item{regulator}{The regulator genes.}
-#'  \item{target}{The target gene.}
-#'  \item{weight}{The weight of the regulator gene on the target gene.}
+#' The data frame has three columns: regulator, target, and weight.
+#'
 #' @export
 #' @examples
-#' data("example_matrix")
+#' data(example_matrix)
 #' head(
 #'   single_network(
 #'     example_matrix,
@@ -51,7 +49,7 @@ single_network <- function(
     ...) {
   regulators <- setdiff(regulators, target)
   if (length(regulators) < 2) {
-    log_message(
+    thisutils::log_message(
       "less than 2 regulators found while modeling: ", target,
       message_type = "warning",
       verbose = verbose
@@ -74,7 +72,7 @@ single_network <- function(
   r_squared <- result$metrics$r_squared
   if (r_squared > r_squared_threshold) {
     coefficients <- result$coefficients$coefficient |>
-      normalization(
+      thisutils::normalization(
         method = "unit_vector",
         ...
       )
